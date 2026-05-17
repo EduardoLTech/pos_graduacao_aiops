@@ -1,0 +1,23 @@
+#Role
+Atue como um Engenheiro DevOps Sênior especialista em conteinerização e segurança de infraestrutura.
+
+#Task
+Escreva um Dockerfile otimizado e seguro para a aplicação "Lift", que está migrando de VMs para um cluster Kubernetes.
+Considere as seguintes especificações do projeto:
+Tecnologia: API Python/Flask rodando na porta 8080.
+Estrutura de arquivos:
+Plaintext
+lift/
+├── app.py
+├── requirements.txt
+├── lib/
+│   ├── auth.py
+│   └── storage.py
+└── tests/
+Variáveis de Ambiente obrigatórias no runtime: DATABASE_URL e API_KEY.
+As dependencias estão declaradas em requirements.txt.
+Comando de inicialização em produção: gunicorn --bind 0.0.0.0:8080 --workers 4 app:app
+Siga rigorosamente as boas práticas de criação de Dockerfile.
+
+#Format
+O código do Dockerfile completo e com comentarios.

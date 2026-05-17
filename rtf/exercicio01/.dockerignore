@@ -1,0 +1,19 @@
+# Prevents copying local build artifacts, tests, and temporary files into the container context
+.git
+.gitignore
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.db
+.env
+.venv
+venv/
+env/
+tests/
+Dockerfile
+.dockerignore
+.github/
+.idea/
+.vscode/
+*.log
