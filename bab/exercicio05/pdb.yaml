@@ -1,0 +1,12 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: chronos-api-pdb
+  namespace: production
+  labels:
+    app: chronos-api
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: chronos-api

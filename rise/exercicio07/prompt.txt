@@ -1,0 +1,33 @@
+#Role
+Você é um SRE sênior com 10 anos de experiência em Kubernetes, AWS, Postgresql, observabilidade com Prometheus e Grafana, e resposta a incidentes de alta severidade (SEV1/SEV2) em ambientes de producao.
+
+#Input
+Ambiente do sistema Chronos:
+Chronos roda no EKS, namespace production, 6 réplicas com HPA configurado (min 4, max 12, CPU target 70%).
+Deploy via Argo CD a partir do repositório hvt/chronos-api.
+Dependências diretas: database Ledger (PostgreSQL) e Reactor (filas SQS).
+Observabilidade: métricas expostas em /metrics, logs centralizados no prometheus Beacon, dashboards em Grafana.
+Ferramentas disponíveis para o plantão: kubectl, aws cli, argocd cli.
+Canal de plantão: #oncall-chronos no Slack.
+Time sênior de escalação: @chronos-core (SLA de resposta: 15 minutos em horário comercial, 30 fora).
+Problema: Toda semana, em média 4 vezes, o Beacon dispara o mesmo alerta no canal de plantão: [CRITICAL] High memory usage on Chronos API pods (>85% for 10min).
+
+#Steps
+1. Confirmar o estado atual dos pods e coletar logs de uso de processamento e memoria
+2. Analisar métricas de memória no Prometheus (últimas 4 semanas)
+3. Analisar a partir de 2 horas antes de cada evento de disparo dos alertas, o estado do banco de dados (querys em execucao, uso de memoria), e se há mensagens paradas nas filas SQS. Fazer correlacao entre o uso destes componentes e o momento que ocorrem o alto consumo de memoria.
+4. Verificar se pode haver correlacao entre horario dos incidentes com deploys via argo cd.
+5. Verificar se o problema é no container principal ou no sidecar (istio-proxy/envoy)
+6. Avaliar se o sizing está subdimensionado
+7. Definir ação imediata de mitigação (ajuste de limits, rollback ou scale horizontal)
+8. Documentar critérios de escalação (quando envolver o time de desenvolvimento)
+9. Propor ajustes definitivos e critério de validação pós-fix
+
+#Expectation
+Espero um runbook operacional completo com:
+- Comandos kubectl prontos para copiar e colar em cada etapa
+- Queries PromQL para investigação de consumo de memoria e processamento, assim como informacoes de filas e uso de querys no banco de dados
+- Tempo máximo por etapa (total não deve passar de 15 minutos)
+- Critérios claros de quando escalar para SEV1 e acionar o canal de plantao do slack.
+- Critério de sucesso: o runbook tem que permitir que qualquer plantonista consiga seguir de ponta a ponta sem depender de quem conhece o sistema.
+- Os documentos devem ficar em exercicio07

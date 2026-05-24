@@ -1,0 +1,34 @@
+#Context
+Na empresa todos os modulos do Terraform para AWS precisam seguir um padrao de construcao. é utilizado o terraform-aws-modules como referencia. Os ambientes são separados em dev, staging e production. Convencao de naming: kebab-case para recursos, snake_case para variaveis.
+
+#Action
+Crie um modulo Terraform reutilizavel para criacao de bucket S3 com as seguintes definicioes:
+Tags obrigatórias em todo recurso: Owner, CostCenter, Environment.
+Prefixo hvt- nos nomes de recursos.
+Todo bucket S3 com: encryption habilitada (SSE-S3 mínimo), versioning ativo, block public access total, logging configurado.
+Variáveis de entrada em variables.tf com description e type obrigatórios.
+
+#Result
+O modulo deve conter: main.tf, variables.tf com descrições e validações, outputs.tf com ARN e nome do bucket, e um README_S3.md com exemplo de uso. Os arquivos ficarão em exercicio06.
+
+#Exemple
+Para sua referencia, siga o exemplo de construcao do modulo VPC:
+variable "environment" {
+  description = "Nome do ambiente (dev, staging, production)"
+  type        = string
+}
+
+locals {
+  common_tags = {
+    Owner       = var.owner
+    CostCenter  = var.cost_center
+    Environment = var.environment
+  }
+}
+
+resource "aws_vpc" "this" {
+  cidr_block = var.cidr_block
+  tags = merge(local.common_tags, {
+    Name = "hvt-vpc-${var.environment}"
+  })
+}
