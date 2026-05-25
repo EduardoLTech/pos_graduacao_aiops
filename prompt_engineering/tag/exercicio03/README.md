@@ -4,7 +4,7 @@
 O prompt completo está registrado no arquivo prompt.txt e a resposta no arquivo JanelaContexto.md.
 
 ## 2. Modelo
-O modelo utilizado é o **Gemini 3.5 Flash (Medium)**, rodando na IDE Antigravity, escolhido por ser uma tarefa analítica e de tomada de decisões de custo cloud com base em um CSV.
+O modelo utilizado é o **Gemini 3.5 Flash (Medium)**, rodando na IDE Antigravity, escolhido por ser uma tarefa analítica e de tomada de decisões de baixo custo cloud com base em um CSV.
 
 ## 3. Output
 A resposta gerada pelo modelo está no arquivo JanelaContexto.md e o relatório de otimização detalhado está no arquivo otimizacao_custos.md.

@@ -4,7 +4,7 @@
 O prompt completo está registrado no arquivo `prompt.txt` e a conversa completa no arquivo `JanelaContexto.md`.
 
 ## 2. Modelo
-O modelo utilizado é o **Claude Sonnet 4.6 (Thinking)**, rodando na IDE Antigravity, escolhido por ser mais forte em codificacao e com melhor relacao custo x beneficios em relacao ao Gemini flash.
+O modelo utilizado é o **Claude Sonnet 4.6 (Thinking)**, rodando na IDE Antigravity, escolhido por ser mais forte em codificacao em relacao ao Gemini 3 Flash e com melhor custo x beneficios em relacao ao Opus.
 
 ## 3. Output
 Os arquivos gerados pelo modelo estão em `exercicio06/`:

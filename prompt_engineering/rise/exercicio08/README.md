@@ -4,7 +4,7 @@
 O prompt completo está registrado no arquivo [prompt.txt] e a conversa completa no arquivo [JanelaContexto.md].
 
 ## 2. Modelo
-O modelo utilizado foi o **Gemini 3.5 Flash** para a estruturação técnica da resposta, elaboração de comandos complexos de Kubernetes e análise matemática das métricas do pool de conexões PostgreSQL. Se apresentou mais rapido que o Claude Sonnet 4.6.
+O modelo utilizado foi o **Gemini 3.5 Flash** para a estruturação técnica da resposta, elaboração de comandos complexos de Kubernetes e análise matemática das métricas do pool de conexões PostgreSQL. Se apresentou mais rapido que o Claude Sonnet 4.6 que travou no momento da tentativa.
 
 ## 3. Output
 Os arquivos gerados estão na pasta `exercicio08/`:

@@ -4,7 +4,7 @@
 O prompt completo está registrado no arquivo prompt.txt e a resposta no arquivo JanelaContexto.md.
 
 ## 2. Modelo
-O modelo utilizado é o **Gemini 3.5 Flash (Medium)**, rodando na IDE Antigravity, escolhido por ser uma tarefa analítica e de tomada de decisões de arquitetura e segurança de infraestrutura Kubernetes.
+O modelo utilizado é o **Gemini 3.5 Flash (Medium)**, rodando na IDE Antigravity, escolhido para testar a nova versdao do Gemini.
 
 ## 3. Output
 A resposta gerada pelo modelo está no arquivo JanelaContexto.md e o guia de atualização e rollback detalhado está no arquivo atualizacao_k8s.md. Os manifests gerados são:
