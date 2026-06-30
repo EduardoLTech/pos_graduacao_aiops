@@ -34,8 +34,8 @@ nunca pela técnica de construção.
 | # | Título | Domínio | Resposta | Item de catálogo |
 |---|--------|---------|----------|------------------|
 | 01 | Triagem de saúde de pods (Kubernetes) | SRE | [checkpoint-01-triagem-pods.md](checkpoint-01-triagem-pods.md) | [sre/triagem-pods-kubernetes](sre/triagem-pods-kubernetes/) |
-| 02 | _(a definir)_ | — | — | — |
-| 03 | _(a definir)_ | — | — | — |
+| 02 | Nota de triagem padronizada (alertas) | SRE | [checkpoint-02-nota-triagem-padronizada.md](checkpoint-02-nota-triagem-padronizada.md) | [sre/nota-triagem-padronizada](sre/nota-triagem-padronizada/) |
+| 03 | Causa-raiz da degradação no Cerebro | SRE | [checkpoint-03-causa-raiz-cerebro.md](checkpoint-03-causa-raiz-cerebro.md) | [sre/analise-causa-raiz](sre/analise-causa-raiz/) |
 | 04 | _(a definir)_ | — | — | — |
 | 05 | _(a definir)_ | — | — | — |
 | 06 | _(a definir)_ | — | — | — |
@@ -49,5 +49,10 @@ nunca pela técnica de construção.
 ### SRE
 - **[Triagem de saúde de pods (Kubernetes)](sre/triagem-pods-kubernetes/)** — recebe um
   snapshot de cluster e devolve a triagem com causa provável e próxima ação do plantão.
+- **[Nota de triagem padronizada (alertas)](sre/nota-triagem-padronizada/)** — recebe um
+  alerta cru e devolve a nota de triagem no padrão único de plantão (cinco campos fixos).
+- **[Análise de causa-raiz de degradação (cross-artefato)](sre/analise-causa-raiz/)** —
+  recebe config + métricas + logs e raciocina até a causa-raiz (não o sintoma), com a
+  cadeia causal evidenciada, mitigação imediata e correção definitiva.
 
 

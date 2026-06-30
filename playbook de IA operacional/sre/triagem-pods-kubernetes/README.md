@@ -49,7 +49,7 @@ o modelo gerou o rascunho, a curadoria final é humana.
 
 Mapa dos componentes RISE no prompt: **Role** → `# Papel`; **Input** → `# Entrada`
 (`{{snapshot}}`); **Steps** → `# Passos`; **Expectation** → `# Critério de pronto`
-(definição de "pronto"/validação, conforme a aula de RISE). O `# Exemplo de um bloco`
+(definição de "pronto"/validação, pela definição do RISE). O `# Exemplo de um bloco`
 é o **Example** do CARE.
 
 ## Casos de uso validados
