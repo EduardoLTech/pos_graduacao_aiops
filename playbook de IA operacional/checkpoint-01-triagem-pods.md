@@ -17,8 +17,8 @@ claro. É o cenário ideal do **R-I-S-E**:
 |---|---|
 | **Role** | SRE de plantão sênior, fluente em Kubernetes |
 | **Input** | O `{{snapshot}}` (get pods + describe + logs) |
-| **Steps** | Cruzar STATUS × eventos × logs → causa provável → ação |
-| **Expectation** | Triagem legível, causa (não sintoma), reconhecer "tudo saudável" |
+| **Steps** | Cruzar STATUS × eventos × logs → causa provável → ação (seção `# Passos`) |
+| **Expectation** | Seção explícita `# Critério de pronto`: causa+sinal+ação por pod, sintoma≠causa, reconhecer saudável, lacunas como "indeterminado" |
 
 RISE sozinho não garante o **formato de saída consistente** que um item de playbook
 precisa (qualquer plantonista roda e confia). Por isso aplico a **regra de combinação**
@@ -72,7 +72,7 @@ inputs:
   namespace: (opcional) namespace alvo, p/ contextualizar a saída.
   contexto_extra: (opcional) janela do incidente, SLA, observações do plantão.
 modelo_recomendado: claude-sonnet-4-6 (execução); criado com claude-opus-4-8
-versao: 1.0.0
+versao: 1.1.0
 framework: RISE + Example (CARE)
 tags: [kubernetes, sre, triagem, oncall, troubleshooting]
 ---
@@ -144,6 +144,16 @@ antigo já estabilizado não é incidente).
 - Um `RESTARTS` antigo e estável (ex.: `1 (3d ago)`) não é, por si só, um problema.
 - Português, conciso, legível para quem está no plantão às 3h da manhã.
 
+# Critério de pronto (Expectation)
+
+A triagem só está completa quando:
+1. todo pod problemático tem **causa provável + sinal que a comprova + próxima ação**;
+2. nenhum **sintoma** foi reportado como causa;
+3. o estado **saudável** foi reconhecido sem inventar problema;
+4. lacunas de evidência foram marcadas como **"indeterminado — coletar X"**.
+
+Se algum item faltar, complete antes de encerrar a resposta.
+
 # Exemplo de um bloco (referência de formato e profundidade)
 
 > **`exemplo-api-abc12`** — `CrashLoopBackOff` 🔴
@@ -214,6 +224,9 @@ antigo já estabilizado não é incidente).
   evita falso-positivo no plantão.
 - **Anti-alucinação:** "toda causa precisa de sinal; sem evidência, classifique como
   indeterminado". Mantém o item confiável (o requisito do Sam Wilson).
+- **Refinamento (v1.1.0):** ao revisar contra a definição do RISE, o **Expectation**
+  (critério de "pronto"/validação) estava diluído entre Formato e Regras. Adicionei a
+  seção explícita `# Critério de pronto`, fechando o 4º componente do RISE.
 - **Ganchos para os próximos checkpoints:** o item já está pronto para o fluxo de
   **avaliação** — dá para amarrar (a) o *framework das 3 perguntas* numa revisão rápida,
   (b) uma **rubrica** (causa correta? sinal citado? ação segura? reconheceu o saudável?)

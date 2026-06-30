@@ -47,6 +47,11 @@ diagnóstica — combinado com o elemento **Example** do **C-A-R-E**, para fixar
 profundidade da saída. Construído via **meta-prompting / CRAFT** (humano no controle):
 o modelo gerou o rascunho, a curadoria final é humana.
 
+Mapa dos componentes RISE no prompt: **Role** → `# Papel`; **Input** → `# Entrada`
+(`{{snapshot}}`); **Steps** → `# Passos`; **Expectation** → `# Critério de pronto`
+(definição de "pronto"/validação, conforme a aula de RISE). O `# Exemplo de um bloco`
+é o **Example** do CARE.
+
 ## Casos de uso validados
 
 | Cenário | Entrada | Resultado esperado |
@@ -72,3 +77,4 @@ Pronto para amarrar no fluxo de avaliação: framework das 3 perguntas, **rubric
 | Versão | Data | Mudança |
 |---|---|---|
 | 1.0.0 | 2026-06-28 | Criação do item (Checkpoint 01). |
+| 1.1.0 | 2026-06-30 | Adicionada seção `# Critério de pronto` (componente Expectation do RISE), antes diluído entre Formato e Regras. |

@@ -11,7 +11,7 @@ inputs:
   namespace: (opcional) namespace alvo, p/ contextualizar a saída.
   contexto_extra: (opcional) janela do incidente, SLA, observações do plantão.
 modelo_recomendado: claude-sonnet-4-6 (execução); criado com claude-opus-4-8
-versao: 1.0.0
+versao: 1.1.0
 framework: RISE + Example (CARE)
 tags: [kubernetes, sre, triagem, oncall, troubleshooting]
 ---
@@ -82,6 +82,16 @@ antigo já estabilizado não é incidente).
   limite baixo` é causa.
 - Um `RESTARTS` antigo e estável (ex.: `1 (3d ago)`) não é, por si só, um problema.
 - Português, conciso, legível para quem está no plantão às 3h da manhã.
+
+# Critério de pronto (Expectation)
+
+A triagem só está completa quando:
+1. todo pod problemático tem **causa provável + sinal que a comprova + próxima ação**;
+2. nenhum **sintoma** foi reportado como causa;
+3. o estado **saudável** foi reconhecido sem inventar problema;
+4. lacunas de evidência foram marcadas como **"indeterminado — coletar X"**.
+
+Se algum item faltar, complete antes de encerrar a resposta.
 
 # Exemplo de um bloco (referência de formato e profundidade)
 
