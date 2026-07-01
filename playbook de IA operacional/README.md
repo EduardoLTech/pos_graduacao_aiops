@@ -36,9 +36,9 @@ nunca pela técnica de construção.
 | 01 | Triagem de saúde de pods (Kubernetes) | SRE | [checkpoint-01-triagem-pods.md](checkpoint-01-triagem-pods.md) | [sre/triagem-pods-kubernetes](sre/triagem-pods-kubernetes/) |
 | 02 | Nota de triagem padronizada (alertas) | SRE | [checkpoint-02-nota-triagem-padronizada.md](checkpoint-02-nota-triagem-padronizada.md) | [sre/nota-triagem-padronizada](sre/nota-triagem-padronizada/) |
 | 03 | Causa-raiz da degradação no Cerebro | SRE | [checkpoint-03-causa-raiz-cerebro.md](checkpoint-03-causa-raiz-cerebro.md) | [sre/analise-causa-raiz](sre/analise-causa-raiz/) |
-| 04 | _(a definir)_ | — | — | — |
-| 05 | _(a definir)_ | — | — | — |
-| 06 | _(a definir)_ | — | — | — |
+| 04 | Segurando a sobrecarga do Relay (backpressure) | Arquitetura | [checkpoint-04-backpressure-relay.md](checkpoint-04-backpressure-relay.md) | [arquitetura/decisao-arquitetural-tradeoff](arquitetura/decisao-arquitetural-tradeoff/) |
+| 05 | Migrando o Forge de lote para tempo real | Data | [checkpoint-05-migracao-forge-streaming.md](checkpoint-05-migracao-forge-streaming.md) | [data/migracao-incremental-encadeada](data/migracao-incremental-encadeada/) |
+| 06 | Endurecendo a NetworkPolicy do Sentinel | Segurança | [checkpoint-06-networkpolicy-sentinel.md](checkpoint-06-networkpolicy-sentinel.md) | [seguranca/endurecer-networkpolicy](seguranca/endurecer-networkpolicy/) |
 | 07 | _(a definir)_ | — | — | — |
 | 08 | _(a definir)_ | — | — | — |
 | 09 | _(a definir)_ | — | — | — |
@@ -54,5 +54,24 @@ nunca pela técnica de construção.
 - **[Análise de causa-raiz de degradação (cross-artefato)](sre/analise-causa-raiz/)** —
   recebe config + métricas + logs e raciocina até a causa-raiz (não o sintoma), com a
   cadeia causal evidenciada, mitigação imediata e correção definitiva.
+
+### Arquitetura
+- **[Decisão de engenharia com trade-offs (múltiplos caminhos)](arquitetura/decisao-arquitetural-tradeoff/)**
+  — recebe o cenário (estado + restrições) e compara vários caminhos defensáveis,
+  pesando trade-offs contra critérios e restrições inegociáveis, antes de recomendar
+  (um caminho ou combinação faseada) com o raciocínio à mostra.
+
+### Segurança
+- **[Endurecimento de NetworkPolicy (default-deny)](seguranca/endurecer-networkpolicy/)**
+  — recebe um manifesto de NetworkPolicy permissivo + as regras do padrão + o mapa de
+  serviços e produz a versão endurecida (default-deny explícito, ingress/egress
+  mínimos, comentário por regra), submetida a um ciclo de **verificação e refino**
+  (Chain-of-Verification factor-revise): geração → auditoria isolada → v2, até aprovar.
+
+### Data
+- **[Migração incremental — cadeia de prompts encadeados](data/migracao-incremental-encadeada/)**
+  — cadeia de três elos (diagnóstico → plano faseado least-to-most → runbook por fase)
+  para planejar uma migração grande (ex.: lote → orientado a eventos) em passos
+  reversíveis e sem big-bang, com gate entre os elos.
 
 
