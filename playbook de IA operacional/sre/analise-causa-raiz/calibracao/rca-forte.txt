@@ -1,0 +1,85 @@
+Veredito: O reindex job agendado (que rodou muito além de sua duração esperada)
+competiu por heap/threads de escrita com a indexação normal, disparando throttling
+progressivo que, junto à pressão de memória, acabou estourando o circuit breaker e
+derrubando também as buscas — a causa-raiz é a sobrecarga de escrita do reindex
+prolongado, não a degradação de busca em si.
+
+Linha do tempo
+- 02:00 → reindex job [88123] inicia, duração esperada ~90min / fim previsto ~03:30
+  (config: reindex_job.avg_duration_min=90)
+- 08:02 → job a 38% — já bem além do prazo esperado (log: LoggingTaskListener,
+  created 3.8M/10M)
+- 08:41 → ponto de virada: indexação começa a ser throttled por escrita de segmento
+  não acompanhar o ritmo (log: IndexingMemoryController "segment writing can't keep
+  up"), coincidindo com início da subida de heap_used_pct (61→68% entre 08:00 e
+  08:30, métrica)
+- 09:03–09:51 → fila de escrita sobe de 150/200 para 188/200 (log: ThreadPool queue),
+  heap sobe 79→88% e search_p99_ms dispara de 2300→4100ms (métrica)
+- 09:58 → fila de escrita satura (200/200, rejeição de bulk), circuit breaker do
+  parent atinge 96% e dispara, busca retorna parcial (11/12 shards) (log:
+  EsRejectedExecutionException + CircuitBreakingException)
+- 10:01–10:05 → CircuitBreakingException confirmada, rejeição de 1284 bulks em 5min,
+  falhas totais de shard em buscas (log), search_p99_ms=6700ms e
+  heap_used_pct=94% (métrica)
+
+Causa-raiz (gatilho → propagação → efeito)
+1. Gatilho: reindex job agendado às 02:00 não terminou no prazo esperado — ainda em
+   41% às 09:58, muito além de avg_duration_min: 90 (config: reindex_job.avg_duration_min=90
+   vs log: 09:58:44 created 4.1M/10M, ETA unknown).
+2. Propagação 1 — pressão de escrita: o reindex prolongado mantém carga de indexação
+   alta concorrente com tráfego normal; segment writing não acompanha, throttling de
+   indexação é ativado (log: 08:41:07 IndexingMemoryController "segment writing can't
+   keep up"), e indexed_docs_per_s sobe de 4200→12400 no período (métrica: 08:00→10:00),
+   confirmando volume de escrita anormalmente alto.
+3. Propagação 2 — pressão de heap: GC jovem/antigo cada vez mais longos e frequentes
+   (620ms→1.1s→1.8s, log: JvmGcMonitorService) acompanham heap_used_pct subindo de
+   61%→94% (métrica), evidenciando que a memória usada pela indexação/buffers está
+   consumindo o heap compartilhado com buscas — heap fixo em jvm_heap: 8g (config) sem
+   folga para os dois caminhos simultâneos.
+4. Propagação 3 — saturação de filas: write thread pool queue sobe 150→188→200/200 com
+   rejeições (log: ThreadPool 09:03, 09:51, 09:58), e o circuit breaker do parent
+   (limite implícito no heap de 8g) é atingido e tripado (log: HierarchyCircuitBreakerService
+   09:31 86% → 09:58 96% tripped).
+5. Efeito final: buscas degradam e falham — search_p99_ms 850→6700ms (métrica),
+   resultados parciais e CircuitBreakingException, cache hit ratio cai 74%→29%
+   (métrica + log: query cache eviction rate spiking) porque o heap pressionado força
+   eviction do cache de query, não porque a busca em si seja a origem do problema.
+
+Sintoma × causa: a latência alta de busca (search_p99_ms crescente) e os erros de
+circuit breaker/partial results são efeito visível, não causa — a origem é a contenção
+de heap/threads gerada pelo reindex de escrita que não terminou no tempo esperado e
+cresceu junto com a indexação normal.
+
+Fatores contribuintes
+- jvm_heap: 8g único, compartilhado entre indexação e busca/cache, sem isolamento de
+  circuit breaker dedicado para reindex.
+- query_cache.size_mb: 512 pequeno relativo à pressão de heap — facilita eviction
+  agressiva quando heap aperta.
+- Ausência de limite de duração/circuito de corte para o reindex job (config só define
+  avg_duration_min informativo, não um timeout).
+
+Ações
+- 🔴 Mitigação imediata: cancelar/pausar o reindex task [88123] (ou throttle-lo
+  manualmente) para liberar heap e a fila de escrita imediatamente — ataca o gatilho,
+  não o sintoma de busca.
+- 🟢 Correção definitiva: (1) definir timeout/circuit breaker dedicado para reindex
+  jobs que excedam um múltiplo de avg_duration_min; (2) isolar recursos entre indexação
+  em massa e tráfego de busca (ex.: throttle automático mais agressivo, thread pool/heap
+  reservation separados, ou rodar reindex em índice/nó dedicado); (3) revisar
+  query_cache.size_mb e o limite do circuit breaker do parent para dar mais folga
+  durante picos de indexação.
+
+Confiança e lacunas
+- Confiança: alta para a cadeia reindex→pressão de heap/escrita→circuit
+  breaker→degradação de busca, pois todos os elos têm evidência cruzada (config +
+  métrica + log) no mesmo nó (cerebro-node-3).
+- Hipótese alternativa avaliada: poderia ser um pico orgânico de tráfego de indexação
+  externo (não o reindex). Descartada como causa primária porque o LoggingTaskListener
+  mostra o reindex [88123] ainda rodando e atrasado durante toda a janela (38%→41%
+  entre 08:02 e 09:58), coincidindo exatamente com a curva de degradação — mas não dá
+  para excluir totalmente contribuição de tráfego externo concorrente.
+- Lacunas a coletar: coletar breakdown de indexed_docs_per_s por origem (reindex vs.
+  tráfego normal) para confirmar proporção; coletar logs dos outros 11 nós do cluster
+  para verificar se o problema é local ao node-3 ou distribuído; coletar configuração
+  de circuit breaker (indices.breaker.total.limit) que não está no cerebro.yaml
+  fornecido, para confirmar o limiar exato de 8gb citado nos logs.

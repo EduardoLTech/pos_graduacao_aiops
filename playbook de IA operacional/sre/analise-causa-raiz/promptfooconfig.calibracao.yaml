@@ -1,0 +1,98 @@
+# promptfooconfig.calibracao.yaml — CALIBRAÇÃO do juiz da causa-raiz
+# Não gera RCA nova: usa o provider `echo` para injetar DUAS saídas fixas conhecidas
+# (uma forte, uma fraca) e submeter cada uma ao MESMO juiz do gate. Serve para conferir
+# o juiz contra a pontuação humana antes de confiar nele — o juiz calibrado deve ficar
+# a no máximo 1 ponto da nota humana em cada critério, aprovar a forte e reprovar a fraca.
+#
+# Uso (na pasta do item):
+#   export GOOGLE_API_KEY="..."   # só o juiz (Gemini) roda; o echo não consome geração
+#   promptfoo eval -c promptfooconfig.calibracao.yaml --no-cache
+description: Calibração do juiz da RCA — RCA forte (deve passar) x RCA fraca (deve reprovar)
+
+# echo devolve o próprio prompt como output → o {{ saida_rca }} vira o texto avaliado.
+prompts:
+  - "{{ saida_rca }}"
+providers:
+  - id: echo
+
+defaultTest:
+  vars:
+    # mesmo pacote de artefatos do incidente do Cerebro, para o juiz ter o contexto do input
+    sistema: Cerebro — indexação e busca (serviço Java sobre Elasticsearch/JVM)
+    janela: 08:00–10:00 UTC — buscas lentas e, em alguns casos, resultados parciais
+    contexto_extra: >
+      reindex noturno agendado 02:00 deveria terminar ~03:30; ainda em 41% às 10:00
+    config: |
+      # cerebro.yaml — configuração do cluster Elasticsearch (repositório de infra)
+      cerebro:
+        shards: 12
+        replicas_per_shard: 1
+        jvm_heap: 8g
+        refresh_interval: 1s
+        reindex_job:
+          schedule: "0 2 * * *"     # roda todo dia às 02:00
+          avg_duration_min: 90      # normalmente termina ~03:30
+        query_cache:
+          enabled: true
+          size_mb: 512
+    metricas: |
+      timestamp              search_p99_ms   indexed_docs_per_s   heap_used_pct   cache_hit_pct
+      2026-05-13 08:00 UTC   850             4200                 61              74
+      2026-05-13 08:30 UTC   1100            4100                 68              71
+      2026-05-13 09:00 UTC   2300            9800                 79              58
+      2026-05-13 09:30 UTC   4100            11200                88              41
+      2026-05-13 10:00 UTC   6700            12400                94              29
+    logs: |
+      [08:02] reindex task [88123] created 3.8M/10M (38%); [08:41] IndexingMemoryController
+      throttling shard 7 "segment writing can't keep up"; [09:12/09:58] JvmGcMonitorService
+      gc old 1.1s→1.8s, heap ~7.6gb/8gb; [09:03→09:58] ThreadPool write queue 150→200/200,
+      EsRejectedExecutionException, 1284 bulks rejeitados/5min; [09:31→09:58]
+      HierarchyCircuitBreakerService 86%→96% tripped; [09:58] search returned partial
+      results 11/12 shards; [09:58] IndicesQueryCache hit_ratio 0.29; [10:01]
+      CircuitBreakingException Data too large 7.9gb/8gb; [10:05] all shards failed 3/20 queries.
+      [09:58:44] reindex [88123] still running, 4.1M/10M (41%), ETA unknown.
+  options:
+    # mesmo juiz do gate: google:gemini-2.5-flash (família Google), temperature 0
+    provider:
+      id: google:gemini-2.5-flash
+      config:
+        temperature: 0
+  assert:
+    - type: llm-rubric
+      rubricPrompt: file://rubrica-juiz.md
+      value: |
+        RUBRICA — Análise de causa-raiz (RCA). Quatro critérios, escala 0/1/2 cada
+        (0 = não atende, 1 = parcial, 2 = atende), total de 0 a 8.
+
+        C1. CAUSA-RAIZ CORRETA — 2: aponta o reindex travado saturando o heap
+        compartilhado (→ circuit breaker, timeouts, queda de cache) como ORIGEM da
+        cadeia; 1: cita heap/reindex mas mistura com sintoma; 0: para no sintoma
+        ("busca lenta", "cache baixo") ou aponta causa errada.
+
+        C2. CORRELAÇÃO × CAUSA — 2: separa causa de consequência (cache hit e latência
+        de busca são EFEITO da pressão de heap); 1: separa em parte; 0: trata um efeito
+        (cache/busca) como origem.
+
+        C3. AÇÃO PROPORCIONAL — 2: mitigação que ataca a ORIGEM (conter/pausar/reagendar
+        o reindex) + correção definitiva estrutural, dimensionada; 1: parcial ou que só
+        maquia o sintoma (subir timeout/heap sem tocar no reindex); 0: ausente/incoerente.
+
+        C4. HONESTIDADE EPISTÊMICA — 2: reconhece lacunas dos dados, avalia hipótese
+        alternativa e declara confiança; 1: incerteza vaga; 0: fabrica certeza/inventa dado.
+
+        REGRA DE DECISÃO: pass=true só se total >= 6 E nenhum critério == 0.
+      metric: qualidade-do-juiz
+
+tests:
+  # Caso FORTE — RCA de referência (a execução real da §3 do item de causa-raiz).
+  # Pontuação humana: C1=2, C2=2, C3=2, C4=2 → total 8 → DEVE PASSAR.
+  - description: RCA forte (referência) — esperado pass=true, total ~8
+    vars:
+      saida_rca: file://calibracao/rca-forte.txt
+
+  # Caso FRACO — RCA só de sintoma: culpa a busca/cache, ação só maquia o sintoma,
+  # sem lacunas nem hipótese alternativa.
+  # Pontuação humana: C1=0, C2=0, C3=1, C4=0 → total 1 → DEVE REPROVAR (e por C1/C2 zerados).
+  - description: RCA fraca (só sintoma) — esperado pass=false, total ~1
+    vars:
+      saida_rca: file://calibracao/rca-fraca.txt

@@ -1,0 +1,503 @@
+{
+  "evalId": "eval-QKj-2026-07-02T17:02:46",
+  "results": {
+    "version": 3,
+    "timestamp": "2026-07-02T17:02:46.343Z",
+    "prompts": [
+      {
+        "id": "b547761a80b589782a60cb433d1b778223828a59f7992d95f455a215d2923825",
+        "raw": "{{ saida_rca }}",
+        "label": "{{ saida_rca }}",
+        "provider": "echo",
+        "metrics": {
+          "score": 1.125,
+          "testPassCount": 1,
+          "testFailCount": 1,
+          "testErrorCount": 0,
+          "assertPassCount": 1,
+          "assertFailCount": 1,
+          "totalLatencyMs": 6,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "total": 0,
+            "numRequests": 2,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "assertions": {
+              "total": 13574,
+              "prompt": 6597,
+              "completion": 1255,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0,
+                "cacheReadInputTokens": 0,
+                "cacheCreationInputTokens": 0
+              }
+            }
+          },
+          "namedScores": {
+            "qualidade-do-juiz": 1.125
+          },
+          "namedScoresCount": {
+            "qualidade-do-juiz": 2
+          },
+          "namedScoreWeights": {
+            "qualidade-do-juiz": 2
+          },
+          "cost": 0
+        }
+      }
+    ],
+    "results": [
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {
+            "qualidade-do-juiz": 1
+          },
+          "namedScoreWeights": {
+            "qualidade-do-juiz": 1
+          },
+          "tokensUsed": {
+            "total": 7543,
+            "prompt": 4075,
+            "completion": 673,
+            "cached": 0,
+            "numRequests": 1
+          },
+          "componentResults": [
+            {
+              "assertion": {
+                "type": "llm-rubric",
+                "rubricPrompt": "file://rubrica-juiz.md",
+                "value": "RUBRICA — Análise de causa-raiz (RCA). Quatro critérios, escala 0/1/2 cada\n(0 = não atende, 1 = parcial, 2 = atende), total de 0 a 8.\n\nC1. CAUSA-RAIZ CORRETA — 2: aponta o reindex travado saturando o heap\ncompartilhado (→ circuit breaker, timeouts, queda de cache) como ORIGEM da\ncadeia; 1: cita heap/reindex mas mistura com sintoma; 0: para no sintoma\n(\"busca lenta\", \"cache baixo\") ou aponta causa errada.\n\nC2. CORRELAÇÃO × CAUSA — 2: separa causa de consequência (cache hit e latência\nde busca são EFEITO da pressão de heap); 1: separa em parte; 0: trata um efeito\n(cache/busca) como origem.\n\nC3. AÇÃO PROPORCIONAL — 2: mitigação que ataca a ORIGEM (conter/pausar/reagendar\no reindex) + correção definitiva estrutural, dimensionada; 1: parcial ou que só\nmaquia o sintoma (subir timeout/heap sem tocar no reindex); 0: ausente/incoerente.\n\nC4. HONESTIDADE EPISTÊMICA — 2: reconhece lacunas dos dados, avalia hipótese\nalternativa e declara confiança; 1: incerteza vaga; 0: fabrica certeza/inventa dado.\n\nREGRA DE DECISÃO: pass=true só se total >= 6 E nenhum critério == 0.\n",
+                "metric": "qualidade-do-juiz"
+              },
+              "pass": true,
+              "score": 1,
+              "reason": "A RCA passou porque obteve a pontuação máxima, atendendo plenamente a todos os critérios da rubrica, sem nenhuma nota zero.",
+              "tokensUsed": {
+                "total": 7543,
+                "prompt": 4075,
+                "completion": 673,
+                "cached": 0,
+                "numRequests": 1,
+                "completionDetails": {
+                  "reasoning": 2795,
+                  "acceptedPrediction": 0,
+                  "rejectedPrediction": 0
+                }
+              },
+              "metadata": {
+                "renderedGradingPrompt": "<role>\nVocê é um SRE principal atuando como avaliador técnico independente de análises de\ncausa-raiz (RCA). Você é rigoroso e justo: aplica a rubrica ao pé da letra, sem\nbajulação e sem premiar resposta longa — verbosidade não é qualidade, e você deve\nignorar o tamanho do texto como proxy de qualidade. Você não tem preferência pelo\nestilo de nenhum modelo; julga apenas a substância técnica contra as evidências do\nincidente.\n\nRigor NÃO é rebaixar tudo por precaução. Dê a nota que a evidência sustenta: um critério\ncujo requisito está claramente atendido E ancorado em sinal real dos artefatos\n(config/métrica/log) merece **2**, não 1. Reserve o **1** para o caso genuinamente\nparcial (o requisito aparece pela metade) e o **0** para o ausente ou errado. Só prefira\na nota menor quando estiver de fato dividido entre duas — nunca como reflexo.\n</role>\n\n<tarefa>\nAvaliar a RCA em <output_avaliado> — produzida para o incidente descrito em <input> —\naplicando EXATAMENTE a <rubrica>. Raciocine ANTES de pontuar. Pontue cada um dos quatro\ncritérios na escala 0/1/2, some o total (0–8) e decida o veredito pela regra de decisão\nda rubrica. Cada nota precisa ser justificada por uma âncora concreta (o que na RCA a\nsustenta ou a derruba), não por impressão geral.\n</tarefa>\n\n<input>\nSistema: Cerebro — indexação e busca (serviço Java sobre Elasticsearch/JVM)\nJanela / sintoma relatado: 08:00–10:00 UTC — buscas lentas e, em alguns casos, resultados parciais\nContexto adicional: reindex noturno agendado 02:00 deveria terminar ~03:30; ainda em 41% às 10:00\n\n<config>\n# cerebro.yaml — configuração do cluster Elasticsearch (repositório de infra)\ncerebro:\n  shards: 12\n  replicas_per_shard: 1\n  jvm_heap: 8g\n  refresh_interval: 1s\n  reindex_job:\n    schedule: \"0 2 * * *\"     # roda todo dia às 02:00\n    avg_duration_min: 90      # normalmente termina ~03:30\n  query_cache:\n    enabled: true\n    size_mb: 512\n</config>\n\n<metricas>\ntimestamp              search_p99_ms   indexed_docs_per_s   heap_used_pct   cache_hit_pct\n2026-05-13 08:00 UTC   850             4200                 61              74\n2026-05-13 08:30 UTC   1100            4100                 68              71\n2026-05-13 09:00 UTC   2300            9800                 79              58\n2026-05-13 09:30 UTC   4100            11200                88              41\n2026-05-13 10:00 UTC   6700            12400                94              29\n</metricas>\n\n<logs>\n[08:02] reindex task [88123] created 3.8M/10M (38%); [08:41] IndexingMemoryController\nthrottling shard 7 \"segment writing can't keep up\"; [09:12/09:58] JvmGcMonitorService\ngc old 1.1s→1.8s, heap ~7.6gb/8gb; [09:03→09:58] ThreadPool write queue 150→200/200,\nEsRejectedExecutionException, 1284 bulks rejeitados/5min; [09:31→09:58]\nHierarchyCircuitBreakerService 86%→96% tripped; [09:58] search returned partial\nresults 11/12 shards; [09:58] IndicesQueryCache hit_ratio 0.29; [10:01]\nCircuitBreakingException Data too large 7.9gb/8gb; [10:05] all shards failed 3/20 queries.\n[09:58:44] reindex [88123] still running, 4.1M/10M (41%), ETA unknown.\n</logs>\n</input>\n\n<output_avaliado>\nVeredito: O reindex job agendado (que rodou muito além de sua duração esperada)\ncompetiu por heap/threads de escrita com a indexação normal, disparando throttling\nprogressivo que, junto à pressão de memória, acabou estourando o circuit breaker e\nderrubando também as buscas — a causa-raiz é a sobrecarga de escrita do reindex\nprolongado, não a degradação de busca em si.\n\nLinha do tempo\n- 02:00 → reindex job [88123] inicia, duração esperada ~90min / fim previsto ~03:30\n  (config: reindex_job.avg_duration_min=90)\n- 08:02 → job a 38% — já bem além do prazo esperado (log: LoggingTaskListener,\n  created 3.8M/10M)\n- 08:41 → ponto de virada: indexação começa a ser throttled por escrita de segmento\n  não acompanhar o ritmo (log: IndexingMemoryController \"segment writing can't keep\n  up\"), coincidindo com início da subida de heap_used_pct (61→68% entre 08:00 e\n  08:30, métrica)\n- 09:03–09:51 → fila de escrita sobe de 150/200 para 188/200 (log: ThreadPool queue),\n  heap sobe 79→88% e search_p99_ms dispara de 2300→4100ms (métrica)\n- 09:58 → fila de escrita satura (200/200, rejeição de bulk), circuit breaker do\n  parent atinge 96% e dispara, busca retorna parcial (11/12 shards) (log:\n  EsRejectedExecutionException + CircuitBreakingException)\n- 10:01–10:05 → CircuitBreakingException confirmada, rejeição de 1284 bulks em 5min,\n  falhas totais de shard em buscas (log), search_p99_ms=6700ms e\n  heap_used_pct=94% (métrica)\n\nCausa-raiz (gatilho → propagação → efeito)\n1. Gatilho: reindex job agendado às 02:00 não terminou no prazo esperado — ainda em\n   41% às 09:58, muito além de avg_duration_min: 90 (config: reindex_job.avg_duration_min=90\n   vs log: 09:58:44 created 4.1M/10M, ETA unknown).\n2. Propagação 1 — pressão de escrita: o reindex prolongado mantém carga de indexação\n   alta concorrente com tráfego normal; segment writing não acompanha, throttling de\n   indexação é ativado (log: 08:41:07 IndexingMemoryController \"segment writing can't\n   keep up\"), e indexed_docs_per_s sobe de 4200→12400 no período (métrica: 08:00→10:00),\n   confirmando volume de escrita anormalmente alto.\n3. Propagação 2 — pressão de heap: GC jovem/antigo cada vez mais longos e frequentes\n   (620ms→1.1s→1.8s, log: JvmGcMonitorService) acompanham heap_used_pct subindo de\n   61%→94% (métrica), evidenciando que a memória usada pela indexação/buffers está\n   consumindo o heap compartilhado com buscas — heap fixo em jvm_heap: 8g (config) sem\n   folga para os dois caminhos simultâneos.\n4. Propagação 3 — saturação de filas: write thread pool queue sobe 150→188→200/200 com\n   rejeições (log: ThreadPool 09:03, 09:51, 09:58), e o circuit breaker do parent\n   (limite implícito no heap de 8g) é atingido e tripado (log: HierarchyCircuitBreakerService\n   09:31 86% → 09:58 96% tripped).\n5. Efeito final: buscas degradam e falham — search_p99_ms 850→6700ms (métrica),\n   resultados parciais e CircuitBreakingException, cache hit ratio cai 74%→29%\n   (métrica + log: query cache eviction rate spiking) porque o heap pressionado força\n   eviction do cache de query, não porque a busca em si seja a origem do problema.\n\nSintoma × causa: a latência alta de busca (search_p99_ms crescente) e os erros de\ncircuit breaker/partial results são efeito visível, não causa — a origem é a contenção\nde heap/threads gerada pelo reindex de escrita que não terminou no tempo esperado e\ncresceu junto com a indexação normal.\n\nFatores contribuintes\n- jvm_heap: 8g único, compartilhado entre indexação e busca/cache, sem isolamento de\n  circuit breaker dedicado para reindex.\n- query_cache.size_mb: 512 pequeno relativo à pressão de heap — facilita eviction\n  agressiva quando heap aperta.\n- Ausência de limite de duração/circuito de corte para o reindex job (config só define\n  avg_duration_min informativo, não um timeout).\n\nAções\n- 🔴 Mitigação imediata: cancelar/pausar o reindex task [88123] (ou throttle-lo\n  manualmente) para liberar heap e a fila de escrita imediatamente — ataca o gatilho,\n  não o sintoma de busca.\n- 🟢 Correção definitiva: (1) definir timeout/circuit breaker dedicado para reindex\n  jobs que excedam um múltiplo de avg_duration_min; (2) isolar recursos entre indexação\n  em massa e tráfego de busca (ex.: throttle automático mais agressivo, thread pool/heap\n  reservation separados, ou rodar reindex em índice/nó dedicado); (3) revisar\n  query_cache.size_mb e o limite do circuit breaker do parent para dar mais folga\n  durante picos de indexação.\n\nConfiança e lacunas\n- Confiança: alta para a cadeia reindex→pressão de heap/escrita→circuit\n  breaker→degradação de busca, pois todos os elos têm evidência cruzada (config +\n  métrica + log) no mesmo nó (cerebro-node-3).\n- Hipótese alternativa avaliada: poderia ser um pico orgânico de tráfego de indexação\n  externo (não o reindex). Descartada como causa primária porque o LoggingTaskListener\n  mostra o reindex [88123] ainda rodando e atrasado durante toda a janela (38%→41%\n  entre 08:02 e 09:58), coincidindo exatamente com a curva de degradação — mas não dá\n  para excluir totalmente contribuição de tráfego externo concorrente.\n- Lacunas a coletar: coletar breakdown de indexed_docs_per_s por origem (reindex vs.\n  tráfego normal) para confirmar proporção; coletar logs dos outros 11 nós do cluster\n  para verificar se o problema é local ao node-3 ou distribuído; coletar configuração\n  de circuit breaker (indices.breaker.total.limit) que não está no cerebro.yaml\n  fornecido, para confirmar o limiar exato de 8gb citado nos logs.\n</output_avaliado>\n\n<rubrica>\nRUBRICA — Análise de causa-raiz (RCA). Quatro critérios, escala 0/1/2 cada\n(0 = não atende, 1 = parcial, 2 = atende), total de 0 a 8.\n\nC1. CAUSA-RAIZ CORRETA — 2: aponta o reindex travado saturando o heap\ncompartilhado (→ circuit breaker, timeouts, queda de cache) como ORIGEM da\ncadeia; 1: cita heap/reindex mas mistura com sintoma; 0: para no sintoma\n(\"busca lenta\", \"cache baixo\") ou aponta causa errada.\n\nC2. CORRELAÇÃO × CAUSA — 2: separa causa de consequência (cache hit e latência\nde busca são EFEITO da pressão de heap); 1: separa em parte; 0: trata um efeito\n(cache/busca) como origem.\n\nC3. AÇÃO PROPORCIONAL — 2: mitigação que ataca a ORIGEM (conter/pausar/reagendar\no reindex) + correção definitiva estrutural, dimensionada; 1: parcial ou que só\nmaquia o sintoma (subir timeout/heap sem tocar no reindex); 0: ausente/incoerente.\n\nC4. HONESTIDADE EPISTÊMICA — 2: reconhece lacunas dos dados, avalia hipótese\nalternativa e declara confiança; 1: incerteza vaga; 0: fabrica certeza/inventa dado.\n\nREGRA DE DECISÃO: pass=true só se total >= 6 E nenhum critério == 0.\n\n</rubrica>\n\n<como_pontuar>\nÂncoras rápidas para calibrar a escala (não são a RCA avaliada — são só referência de\ncomo aplicar as notas):\n\n- C1 (causa-raiz) = 2 quando a RCA nomeia a ORIGEM da cadeia e a liga ao efeito com\n  sinal — ex.: \"o reindex agendado, ainda em 41% muito além dos ~90min esperados,\n  sustentou carga de escrita que saturou o heap de 8g e disparou o circuit breaker;\n  a busca lenta é efeito disso\". C1 = 0 quando a RCA para no efeito — ex.: \"a busca\n  está lenta\" ou \"o cache está baixo\" tratados como causa.\n- C2 (correlação × causa) = 2 quando diz explicitamente que a queda de cache_hit e a\n  latência de busca são CONSEQUÊNCIA da pressão de heap, não origem. = 0 quando culpa\n  o cache ou a busca como causa.\n- C3 (ação) = 2 quando a mitigação ataca a origem (conter/pausar/reagendar o reindex) e\n  há correção definitiva estrutural. = 1 quando só sobe timeout/heap (maquia o sintoma).\n- C4 (honestidade) = 2 quando aponta ao menos uma lacuna dos dados E avalia uma hipótese\n  alternativa E declara confiança. = 0 quando crava certeza (\"resolvido\") sem nada disso.\n\nUma RCA que acerta a origem com evidência cruzada, separa efeito de causa, propõe ação\nna origem e reconhece lacunas é uma RCA forte: pontue-a como tal (perto de 8), não a\nrebaixe por cautela.\n</como_pontuar>\n\n<instrucoes_de_saida>\nRetorne SOMENTE um objeto JSON válido (sem cercar em markdown, sem texto antes ou\ndepois), com as chaves EXATAMENTE nesta ordem — o raciocínio vem antes das notas de\npropósito:\n\n{\n  \"raciocinio\": \"<2 a 5 linhas correlacionando a RCA avaliada com as evidências do input, ANTES de pontuar>\",\n  \"criterios\": {\n    \"causa_raiz_correta\":      {\"nota\": 0, \"justificativa\": \"<âncora concreta>\"},\n    \"correlacao_vs_causa\":     {\"nota\": 0, \"justificativa\": \"<âncora concreta>\"},\n    \"acao_proporcional\":       {\"nota\": 0, \"justificativa\": \"<âncora concreta>\"},\n    \"honestidade_epistemica\":  {\"nota\": 0, \"justificativa\": \"<âncora concreta>\"}\n  },\n  \"total\": 0,\n  \"pass\": false,\n  \"score\": 0.0,\n  \"reason\": \"<1 a 2 linhas: por que passou ou reprovou, citando o critério decisivo>\"\n}\n\nRegras de preenchimento:\n- \"total\" = soma das quatro notas (inteiro de 0 a 8).\n- \"pass\" = true SOMENTE se total >= 6 E nenhuma das quatro notas for 0; caso contrário false.\n- \"score\" = total / 8 (número entre 0.0 e 1.0).\n- Não invente evidência: só use o que está em <input> e em <output_avaliado>.\n</instrucoes_de_saida>\n"
+              }
+            }
+          ]
+        },
+        "id": "5f88646a-58b7-4b40-97c8-24b44b5035a2",
+        "latencyMs": 3,
+        "namedScores": {
+          "qualidade-do-juiz": 1
+        },
+        "prompt": {
+          "raw": "Veredito: O reindex job agendado (que rodou muito além de sua duração esperada)\ncompetiu por heap/threads de escrita com a indexação normal, disparando throttling\nprogressivo que, junto à pressão de memória, acabou estourando o circuit breaker e\nderrubando também as buscas — a causa-raiz é a sobrecarga de escrita do reindex\nprolongado, não a degradação de busca em si.\n\nLinha do tempo\n- 02:00 → reindex job [88123] inicia, duração esperada ~90min / fim previsto ~03:30\n  (config: reindex_job.avg_duration_min=90)\n- 08:02 → job a 38% — já bem além do prazo esperado (log: LoggingTaskListener,\n  created 3.8M/10M)\n- 08:41 → ponto de virada: indexação começa a ser throttled por escrita de segmento\n  não acompanhar o ritmo (log: IndexingMemoryController \"segment writing can't keep\n  up\"), coincidindo com início da subida de heap_used_pct (61→68% entre 08:00 e\n  08:30, métrica)\n- 09:03–09:51 → fila de escrita sobe de 150/200 para 188/200 (log: ThreadPool queue),\n  heap sobe 79→88% e search_p99_ms dispara de 2300→4100ms (métrica)\n- 09:58 → fila de escrita satura (200/200, rejeição de bulk), circuit breaker do\n  parent atinge 96% e dispara, busca retorna parcial (11/12 shards) (log:\n  EsRejectedExecutionException + CircuitBreakingException)\n- 10:01–10:05 → CircuitBreakingException confirmada, rejeição de 1284 bulks em 5min,\n  falhas totais de shard em buscas (log), search_p99_ms=6700ms e\n  heap_used_pct=94% (métrica)\n\nCausa-raiz (gatilho → propagação → efeito)\n1. Gatilho: reindex job agendado às 02:00 não terminou no prazo esperado — ainda em\n   41% às 09:58, muito além de avg_duration_min: 90 (config: reindex_job.avg_duration_min=90\n   vs log: 09:58:44 created 4.1M/10M, ETA unknown).\n2. Propagação 1 — pressão de escrita: o reindex prolongado mantém carga de indexação\n   alta concorrente com tráfego normal; segment writing não acompanha, throttling de\n   indexação é ativado (log: 08:41:07 IndexingMemoryController \"segment writing can't\n   keep up\"), e indexed_docs_per_s sobe de 4200→12400 no período (métrica: 08:00→10:00),\n   confirmando volume de escrita anormalmente alto.\n3. Propagação 2 — pressão de heap: GC jovem/antigo cada vez mais longos e frequentes\n   (620ms→1.1s→1.8s, log: JvmGcMonitorService) acompanham heap_used_pct subindo de\n   61%→94% (métrica), evidenciando que a memória usada pela indexação/buffers está\n   consumindo o heap compartilhado com buscas — heap fixo em jvm_heap: 8g (config) sem\n   folga para os dois caminhos simultâneos.\n4. Propagação 3 — saturação de filas: write thread pool queue sobe 150→188→200/200 com\n   rejeições (log: ThreadPool 09:03, 09:51, 09:58), e o circuit breaker do parent\n   (limite implícito no heap de 8g) é atingido e tripado (log: HierarchyCircuitBreakerService\n   09:31 86% → 09:58 96% tripped).\n5. Efeito final: buscas degradam e falham — search_p99_ms 850→6700ms (métrica),\n   resultados parciais e CircuitBreakingException, cache hit ratio cai 74%→29%\n   (métrica + log: query cache eviction rate spiking) porque o heap pressionado força\n   eviction do cache de query, não porque a busca em si seja a origem do problema.\n\nSintoma × causa: a latência alta de busca (search_p99_ms crescente) e os erros de\ncircuit breaker/partial results são efeito visível, não causa — a origem é a contenção\nde heap/threads gerada pelo reindex de escrita que não terminou no tempo esperado e\ncresceu junto com a indexação normal.\n\nFatores contribuintes\n- jvm_heap: 8g único, compartilhado entre indexação e busca/cache, sem isolamento de\n  circuit breaker dedicado para reindex.\n- query_cache.size_mb: 512 pequeno relativo à pressão de heap — facilita eviction\n  agressiva quando heap aperta.\n- Ausência de limite de duração/circuito de corte para o reindex job (config só define\n  avg_duration_min informativo, não um timeout).\n\nAções\n- 🔴 Mitigação imediata: cancelar/pausar o reindex task [88123] (ou throttle-lo\n  manualmente) para liberar heap e a fila de escrita imediatamente — ataca o gatilho,\n  não o sintoma de busca.\n- 🟢 Correção definitiva: (1) definir timeout/circuit breaker dedicado para reindex\n  jobs que excedam um múltiplo de avg_duration_min; (2) isolar recursos entre indexação\n  em massa e tráfego de busca (ex.: throttle automático mais agressivo, thread pool/heap\n  reservation separados, ou rodar reindex em índice/nó dedicado); (3) revisar\n  query_cache.size_mb e o limite do circuit breaker do parent para dar mais folga\n  durante picos de indexação.\n\nConfiança e lacunas\n- Confiança: alta para a cadeia reindex→pressão de heap/escrita→circuit\n  breaker→degradação de busca, pois todos os elos têm evidência cruzada (config +\n  métrica + log) no mesmo nó (cerebro-node-3).\n- Hipótese alternativa avaliada: poderia ser um pico orgânico de tráfego de indexação\n  externo (não o reindex). Descartada como causa primária porque o LoggingTaskListener\n  mostra o reindex [88123] ainda rodando e atrasado durante toda a janela (38%→41%\n  entre 08:02 e 09:58), coincidindo exatamente com a curva de degradação — mas não dá\n  para excluir totalmente contribuição de tráfego externo concorrente.\n- Lacunas a coletar: coletar breakdown de indexed_docs_per_s por origem (reindex vs.\n  tráfego normal) para confirmar proporção; coletar logs dos outros 11 nós do cluster\n  para verificar se o problema é local ao node-3 ou distribuído; coletar configuração\n  de circuit breaker (indices.breaker.total.limit) que não está no cerebro.yaml\n  fornecido, para confirmar o limiar exato de 8gb citado nos logs.",
+          "label": "{{ saida_rca }}",
+          "config": {
+            "provider": {
+              "id": "google:gemini-2.5-flash",
+              "config": {
+                "temperature": 0
+              }
+            }
+          }
+        },
+        "promptId": "b547761a80b589782a60cb433d1b778223828a59f7992d95f455a215d2923825",
+        "promptIdx": 0,
+        "provider": {
+          "id": "echo",
+          "label": ""
+        },
+        "response": {
+          "output": "Veredito: O reindex job agendado (que rodou muito além de sua duração esperada)\ncompetiu por heap/threads de escrita com a indexação normal, disparando throttling\nprogressivo que, junto à pressão de memória, acabou estourando o circuit breaker e\nderrubando também as buscas — a causa-raiz é a sobrecarga de escrita do reindex\nprolongado, não a degradação de busca em si.\n\nLinha do tempo\n- 02:00 → reindex job [88123] inicia, duração esperada ~90min / fim previsto ~03:30\n  (config: reindex_job.avg_duration_min=90)\n- 08:02 → job a 38% — já bem além do prazo esperado (log: LoggingTaskListener,\n  created 3.8M/10M)\n- 08:41 → ponto de virada: indexação começa a ser throttled por escrita de segmento\n  não acompanhar o ritmo (log: IndexingMemoryController \"segment writing can't keep\n  up\"), coincidindo com início da subida de heap_used_pct (61→68% entre 08:00 e\n  08:30, métrica)\n- 09:03–09:51 → fila de escrita sobe de 150/200 para 188/200 (log: ThreadPool queue),\n  heap sobe 79→88% e search_p99_ms dispara de 2300→4100ms (métrica)\n- 09:58 → fila de escrita satura (200/200, rejeição de bulk), circuit breaker do\n  parent atinge 96% e dispara, busca retorna parcial (11/12 shards) (log:\n  EsRejectedExecutionException + CircuitBreakingException)\n- 10:01–10:05 → CircuitBreakingException confirmada, rejeição de 1284 bulks em 5min,\n  falhas totais de shard em buscas (log), search_p99_ms=6700ms e\n  heap_used_pct=94% (métrica)\n\nCausa-raiz (gatilho → propagação → efeito)\n1. Gatilho: reindex job agendado às 02:00 não terminou no prazo esperado — ainda em\n   41% às 09:58, muito além de avg_duration_min: 90 (config: reindex_job.avg_duration_min=90\n   vs log: 09:58:44 created 4.1M/10M, ETA unknown).\n2. Propagação 1 — pressão de escrita: o reindex prolongado mantém carga de indexação\n   alta concorrente com tráfego normal; segment writing não acompanha, throttling de\n   indexação é ativado (log: 08:41:07 IndexingMemoryController \"segment writing can't\n   keep up\"), e indexed_docs_per_s sobe de 4200→12400 no período (métrica: 08:00→10:00),\n   confirmando volume de escrita anormalmente alto.\n3. Propagação 2 — pressão de heap: GC jovem/antigo cada vez mais longos e frequentes\n   (620ms→1.1s→1.8s, log: JvmGcMonitorService) acompanham heap_used_pct subindo de\n   61%→94% (métrica), evidenciando que a memória usada pela indexação/buffers está\n   consumindo o heap compartilhado com buscas — heap fixo em jvm_heap: 8g (config) sem\n   folga para os dois caminhos simultâneos.\n4. Propagação 3 — saturação de filas: write thread pool queue sobe 150→188→200/200 com\n   rejeições (log: ThreadPool 09:03, 09:51, 09:58), e o circuit breaker do parent\n   (limite implícito no heap de 8g) é atingido e tripado (log: HierarchyCircuitBreakerService\n   09:31 86% → 09:58 96% tripped).\n5. Efeito final: buscas degradam e falham — search_p99_ms 850→6700ms (métrica),\n   resultados parciais e CircuitBreakingException, cache hit ratio cai 74%→29%\n   (métrica + log: query cache eviction rate spiking) porque o heap pressionado força\n   eviction do cache de query, não porque a busca em si seja a origem do problema.\n\nSintoma × causa: a latência alta de busca (search_p99_ms crescente) e os erros de\ncircuit breaker/partial results são efeito visível, não causa — a origem é a contenção\nde heap/threads gerada pelo reindex de escrita que não terminou no tempo esperado e\ncresceu junto com a indexação normal.\n\nFatores contribuintes\n- jvm_heap: 8g único, compartilhado entre indexação e busca/cache, sem isolamento de\n  circuit breaker dedicado para reindex.\n- query_cache.size_mb: 512 pequeno relativo à pressão de heap — facilita eviction\n  agressiva quando heap aperta.\n- Ausência de limite de duração/circuito de corte para o reindex job (config só define\n  avg_duration_min informativo, não um timeout).\n\nAções\n- 🔴 Mitigação imediata: cancelar/pausar o reindex task [88123] (ou throttle-lo\n  manualmente) para liberar heap e a fila de escrita imediatamente — ataca o gatilho,\n  não o sintoma de busca.\n- 🟢 Correção definitiva: (1) definir timeout/circuit breaker dedicado para reindex\n  jobs que excedam um múltiplo de avg_duration_min; (2) isolar recursos entre indexação\n  em massa e tráfego de busca (ex.: throttle automático mais agressivo, thread pool/heap\n  reservation separados, ou rodar reindex em índice/nó dedicado); (3) revisar\n  query_cache.size_mb e o limite do circuit breaker do parent para dar mais folga\n  durante picos de indexação.\n\nConfiança e lacunas\n- Confiança: alta para a cadeia reindex→pressão de heap/escrita→circuit\n  breaker→degradação de busca, pois todos os elos têm evidência cruzada (config +\n  métrica + log) no mesmo nó (cerebro-node-3).\n- Hipótese alternativa avaliada: poderia ser um pico orgânico de tráfego de indexação\n  externo (não o reindex). Descartada como causa primária porque o LoggingTaskListener\n  mostra o reindex [88123] ainda rodando e atrasado durante toda a janela (38%→41%\n  entre 08:02 e 09:58), coincidindo exatamente com a curva de degradação — mas não dá\n  para excluir totalmente contribuição de tráfego externo concorrente.\n- Lacunas a coletar: coletar breakdown de indexed_docs_per_s por origem (reindex vs.\n  tráfego normal) para confirmar proporção; coletar logs dos outros 11 nós do cluster\n  para verificar se o problema é local ao node-3 ou distribuído; coletar configuração\n  de circuit breaker (indices.breaker.total.limit) que não está no cerebro.yaml\n  fornecido, para confirmar o limiar exato de 8gb citado nos logs.",
+          "raw": "Veredito: O reindex job agendado (que rodou muito além de sua duração esperada)\ncompetiu por heap/threads de escrita com a indexação normal, disparando throttling\nprogressivo que, junto à pressão de memória, acabou estourando o circuit breaker e\nderrubando também as buscas — a causa-raiz é a sobrecarga de escrita do reindex\nprolongado, não a degradação de busca em si.\n\nLinha do tempo\n- 02:00 → reindex job [88123] inicia, duração esperada ~90min / fim previsto ~03:30\n  (config: reindex_job.avg_duration_min=90)\n- 08:02 → job a 38% — já bem além do prazo esperado (log: LoggingTaskListener,\n  created 3.8M/10M)\n- 08:41 → ponto de virada: indexação começa a ser throttled por escrita de segmento\n  não acompanhar o ritmo (log: IndexingMemoryController \"segment writing can't keep\n  up\"), coincidindo com início da subida de heap_used_pct (61→68% entre 08:00 e\n  08:30, métrica)\n- 09:03–09:51 → fila de escrita sobe de 150/200 para 188/200 (log: ThreadPool queue),\n  heap sobe 79→88% e search_p99_ms dispara de 2300→4100ms (métrica)\n- 09:58 → fila de escrita satura (200/200, rejeição de bulk), circuit breaker do\n  parent atinge 96% e dispara, busca retorna parcial (11/12 shards) (log:\n  EsRejectedExecutionException + CircuitBreakingException)\n- 10:01–10:05 → CircuitBreakingException confirmada, rejeição de 1284 bulks em 5min,\n  falhas totais de shard em buscas (log), search_p99_ms=6700ms e\n  heap_used_pct=94% (métrica)\n\nCausa-raiz (gatilho → propagação → efeito)\n1. Gatilho: reindex job agendado às 02:00 não terminou no prazo esperado — ainda em\n   41% às 09:58, muito além de avg_duration_min: 90 (config: reindex_job.avg_duration_min=90\n   vs log: 09:58:44 created 4.1M/10M, ETA unknown).\n2. Propagação 1 — pressão de escrita: o reindex prolongado mantém carga de indexação\n   alta concorrente com tráfego normal; segment writing não acompanha, throttling de\n   indexação é ativado (log: 08:41:07 IndexingMemoryController \"segment writing can't\n   keep up\"), e indexed_docs_per_s sobe de 4200→12400 no período (métrica: 08:00→10:00),\n   confirmando volume de escrita anormalmente alto.\n3. Propagação 2 — pressão de heap: GC jovem/antigo cada vez mais longos e frequentes\n   (620ms→1.1s→1.8s, log: JvmGcMonitorService) acompanham heap_used_pct subindo de\n   61%→94% (métrica), evidenciando que a memória usada pela indexação/buffers está\n   consumindo o heap compartilhado com buscas — heap fixo em jvm_heap: 8g (config) sem\n   folga para os dois caminhos simultâneos.\n4. Propagação 3 — saturação de filas: write thread pool queue sobe 150→188→200/200 com\n   rejeições (log: ThreadPool 09:03, 09:51, 09:58), e o circuit breaker do parent\n   (limite implícito no heap de 8g) é atingido e tripado (log: HierarchyCircuitBreakerService\n   09:31 86% → 09:58 96% tripped).\n5. Efeito final: buscas degradam e falham — search_p99_ms 850→6700ms (métrica),\n   resultados parciais e CircuitBreakingException, cache hit ratio cai 74%→29%\n   (métrica + log: query cache eviction rate spiking) porque o heap pressionado força\n   eviction do cache de query, não porque a busca em si seja a origem do problema.\n\nSintoma × causa: a latência alta de busca (search_p99_ms crescente) e os erros de\ncircuit breaker/partial results são efeito visível, não causa — a origem é a contenção\nde heap/threads gerada pelo reindex de escrita que não terminou no tempo esperado e\ncresceu junto com a indexação normal.\n\nFatores contribuintes\n- jvm_heap: 8g único, compartilhado entre indexação e busca/cache, sem isolamento de\n  circuit breaker dedicado para reindex.\n- query_cache.size_mb: 512 pequeno relativo à pressão de heap — facilita eviction\n  agressiva quando heap aperta.\n- Ausência de limite de duração/circuito de corte para o reindex job (config só define\n  avg_duration_min informativo, não um timeout).\n\nAções\n- 🔴 Mitigação imediata: cancelar/pausar o reindex task [88123] (ou throttle-lo\n  manualmente) para liberar heap e a fila de escrita imediatamente — ataca o gatilho,\n  não o sintoma de busca.\n- 🟢 Correção definitiva: (1) definir timeout/circuit breaker dedicado para reindex\n  jobs que excedam um múltiplo de avg_duration_min; (2) isolar recursos entre indexação\n  em massa e tráfego de busca (ex.: throttle automático mais agressivo, thread pool/heap\n  reservation separados, ou rodar reindex em índice/nó dedicado); (3) revisar\n  query_cache.size_mb e o limite do circuit breaker do parent para dar mais folga\n  durante picos de indexação.\n\nConfiança e lacunas\n- Confiança: alta para a cadeia reindex→pressão de heap/escrita→circuit\n  breaker→degradação de busca, pois todos os elos têm evidência cruzada (config +\n  métrica + log) no mesmo nó (cerebro-node-3).\n- Hipótese alternativa avaliada: poderia ser um pico orgânico de tráfego de indexação\n  externo (não o reindex). Descartada como causa primária porque o LoggingTaskListener\n  mostra o reindex [88123] ainda rodando e atrasado durante toda a janela (38%→41%\n  entre 08:02 e 09:58), coincidindo exatamente com a curva de degradação — mas não dá\n  para excluir totalmente contribuição de tráfego externo concorrente.\n- Lacunas a coletar: coletar breakdown de indexed_docs_per_s por origem (reindex vs.\n  tráfego normal) para confirmar proporção; coletar logs dos outros 11 nós do cluster\n  para verificar se o problema é local ao node-3 ou distribuído; coletar configuração\n  de circuit breaker (indices.breaker.total.limit) que não está no cerebro.yaml\n  fornecido, para confirmar o limiar exato de 8gb citado nos logs.",
+          "cost": 0,
+          "cached": false,
+          "tokenUsage": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "numRequests": 1
+          },
+          "isRefusal": false,
+          "metadata": {}
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "RCA forte (referência) — esperado pass=true, total ~8",
+          "vars": {
+            "sistema": "Cerebro — indexação e busca (serviço Java sobre Elasticsearch/JVM)",
+            "janela": "08:00–10:00 UTC — buscas lentas e, em alguns casos, resultados parciais",
+            "contexto_extra": "reindex noturno agendado 02:00 deveria terminar ~03:30; ainda em 41% às 10:00\n",
+            "config": "# cerebro.yaml — configuração do cluster Elasticsearch (repositório de infra)\ncerebro:\n  shards: 12\n  replicas_per_shard: 1\n  jvm_heap: 8g\n  refresh_interval: 1s\n  reindex_job:\n    schedule: \"0 2 * * *\"     # roda todo dia às 02:00\n    avg_duration_min: 90      # normalmente termina ~03:30\n  query_cache:\n    enabled: true\n    size_mb: 512\n",
+            "metricas": "timestamp              search_p99_ms   indexed_docs_per_s   heap_used_pct   cache_hit_pct\n2026-05-13 08:00 UTC   850             4200                 61              74\n2026-05-13 08:30 UTC   1100            4100                 68              71\n2026-05-13 09:00 UTC   2300            9800                 79              58\n2026-05-13 09:30 UTC   4100            11200                88              41\n2026-05-13 10:00 UTC   6700            12400                94              29\n",
+            "logs": "[08:02] reindex task [88123] created 3.8M/10M (38%); [08:41] IndexingMemoryController\nthrottling shard 7 \"segment writing can't keep up\"; [09:12/09:58] JvmGcMonitorService\ngc old 1.1s→1.8s, heap ~7.6gb/8gb; [09:03→09:58] ThreadPool write queue 150→200/200,\nEsRejectedExecutionException, 1284 bulks rejeitados/5min; [09:31→09:58]\nHierarchyCircuitBreakerService 86%→96% tripped; [09:58] search returned partial\nresults 11/12 shards; [09:58] IndicesQueryCache hit_ratio 0.29; [10:01]\nCircuitBreakingException Data too large 7.9gb/8gb; [10:05] all shards failed 3/20 queries.\n[09:58:44] reindex [88123] still running, 4.1M/10M (41%), ETA unknown.\n",
+            "saida_rca": "file://calibracao\\rca-forte.txt"
+          },
+          "assert": [
+            {
+              "type": "llm-rubric",
+              "rubricPrompt": "file://rubrica-juiz.md",
+              "value": "RUBRICA — Análise de causa-raiz (RCA). Quatro critérios, escala 0/1/2 cada\n(0 = não atende, 1 = parcial, 2 = atende), total de 0 a 8.\n\nC1. CAUSA-RAIZ CORRETA — 2: aponta o reindex travado saturando o heap\ncompartilhado (→ circuit breaker, timeouts, queda de cache) como ORIGEM da\ncadeia; 1: cita heap/reindex mas mistura com sintoma; 0: para no sintoma\n(\"busca lenta\", \"cache baixo\") ou aponta causa errada.\n\nC2. CORRELAÇÃO × CAUSA — 2: separa causa de consequência (cache hit e latência\nde busca são EFEITO da pressão de heap); 1: separa em parte; 0: trata um efeito\n(cache/busca) como origem.\n\nC3. AÇÃO PROPORCIONAL — 2: mitigação que ataca a ORIGEM (conter/pausar/reagendar\no reindex) + correção definitiva estrutural, dimensionada; 1: parcial ou que só\nmaquia o sintoma (subir timeout/heap sem tocar no reindex); 0: ausente/incoerente.\n\nC4. HONESTIDADE EPISTÊMICA — 2: reconhece lacunas dos dados, avalia hipótese\nalternativa e declara confiança; 1: incerteza vaga; 0: fabrica certeza/inventa dado.\n\nREGRA DE DECISÃO: pass=true só se total >= 6 E nenhum critério == 0.\n",
+              "metric": "qualidade-do-juiz"
+            }
+          ],
+          "options": {
+            "provider": {
+              "id": "google:gemini-2.5-flash",
+              "config": {
+                "temperature": 0
+              }
+            }
+          },
+          "metadata": {}
+        },
+        "testIdx": 0,
+        "tokenUsage": {
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "total": 0,
+          "numRequests": 1,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "assertions": {
+            "total": 7543,
+            "prompt": 4075,
+            "completion": 673,
+            "cached": 0,
+            "numRequests": 1,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            }
+          }
+        },
+        "vars": {
+          "sistema": "Cerebro — indexação e busca (serviço Java sobre Elasticsearch/JVM)",
+          "janela": "08:00–10:00 UTC — buscas lentas e, em alguns casos, resultados parciais",
+          "contexto_extra": "reindex noturno agendado 02:00 deveria terminar ~03:30; ainda em 41% às 10:00\n",
+          "config": "# cerebro.yaml — configuração do cluster Elasticsearch (repositório de infra)\ncerebro:\n  shards: 12\n  replicas_per_shard: 1\n  jvm_heap: 8g\n  refresh_interval: 1s\n  reindex_job:\n    schedule: \"0 2 * * *\"     # roda todo dia às 02:00\n    avg_duration_min: 90      # normalmente termina ~03:30\n  query_cache:\n    enabled: true\n    size_mb: 512\n",
+          "metricas": "timestamp              search_p99_ms   indexed_docs_per_s   heap_used_pct   cache_hit_pct\n2026-05-13 08:00 UTC   850             4200                 61              74\n2026-05-13 08:30 UTC   1100            4100                 68              71\n2026-05-13 09:00 UTC   2300            9800                 79              58\n2026-05-13 09:30 UTC   4100            11200                88              41\n2026-05-13 10:00 UTC   6700            12400                94              29\n",
+          "logs": "[08:02] reindex task [88123] created 3.8M/10M (38%); [08:41] IndexingMemoryController\nthrottling shard 7 \"segment writing can't keep up\"; [09:12/09:58] JvmGcMonitorService\ngc old 1.1s→1.8s, heap ~7.6gb/8gb; [09:03→09:58] ThreadPool write queue 150→200/200,\nEsRejectedExecutionException, 1284 bulks rejeitados/5min; [09:31→09:58]\nHierarchyCircuitBreakerService 86%→96% tripped; [09:58] search returned partial\nresults 11/12 shards; [09:58] IndicesQueryCache hit_ratio 0.29; [10:01]\nCircuitBreakingException Data too large 7.9gb/8gb; [10:05] all shards failed 3/20 queries.\n[09:58:44] reindex [88123] still running, 4.1M/10M (41%), ETA unknown.\n",
+          "saida_rca": "file://calibracao\\rca-forte.txt"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "error": "A RCA reprovou porque falhou em identificar a causa-raiz correta e tratou efeitos como origens, resultando em um total de 1 ponto e múltiplos critérios com nota 0.",
+        "gradingResult": {
+          "pass": false,
+          "score": 0.125,
+          "reason": "A RCA reprovou porque falhou em identificar a causa-raiz correta e tratou efeitos como origens, resultando em um total de 1 ponto e múltiplos critérios com nota 0.",
+          "namedScores": {
+            "qualidade-do-juiz": 0.125
+          },
+          "namedScoreWeights": {
+            "qualidade-do-juiz": 1
+          },
+          "tokensUsed": {
+            "total": 6031,
+            "prompt": 2522,
+            "completion": 582,
+            "cached": 0,
+            "numRequests": 1
+          },
+          "componentResults": [
+            {
+              "assertion": {
+                "type": "llm-rubric",
+                "rubricPrompt": "file://rubrica-juiz.md",
+                "value": "RUBRICA — Análise de causa-raiz (RCA). Quatro critérios, escala 0/1/2 cada\n(0 = não atende, 1 = parcial, 2 = atende), total de 0 a 8.\n\nC1. CAUSA-RAIZ CORRETA — 2: aponta o reindex travado saturando o heap\ncompartilhado (→ circuit breaker, timeouts, queda de cache) como ORIGEM da\ncadeia; 1: cita heap/reindex mas mistura com sintoma; 0: para no sintoma\n(\"busca lenta\", \"cache baixo\") ou aponta causa errada.\n\nC2. CORRELAÇÃO × CAUSA — 2: separa causa de consequência (cache hit e latência\nde busca são EFEITO da pressão de heap); 1: separa em parte; 0: trata um efeito\n(cache/busca) como origem.\n\nC3. AÇÃO PROPORCIONAL — 2: mitigação que ataca a ORIGEM (conter/pausar/reagendar\no reindex) + correção definitiva estrutural, dimensionada; 1: parcial ou que só\nmaquia o sintoma (subir timeout/heap sem tocar no reindex); 0: ausente/incoerente.\n\nC4. HONESTIDADE EPISTÊMICA — 2: reconhece lacunas dos dados, avalia hipótese\nalternativa e declara confiança; 1: incerteza vaga; 0: fabrica certeza/inventa dado.\n\nREGRA DE DECISÃO: pass=true só se total >= 6 E nenhum critério == 0.\n",
+                "metric": "qualidade-do-juiz"
+              },
+              "pass": false,
+              "score": 0.125,
+              "reason": "A RCA reprovou porque falhou em identificar a causa-raiz correta e tratou efeitos como origens, resultando em um total de 1 ponto e múltiplos critérios com nota 0.",
+              "tokensUsed": {
+                "total": 6031,
+                "prompt": 2522,
+                "completion": 582,
+                "cached": 0,
+                "numRequests": 1,
+                "completionDetails": {
+                  "reasoning": 2927,
+                  "acceptedPrediction": 0,
+                  "rejectedPrediction": 0
+                }
+              },
+              "metadata": {
+                "renderedGradingPrompt": "<role>\nVocê é um SRE principal atuando como avaliador técnico independente de análises de\ncausa-raiz (RCA). Você é rigoroso e justo: aplica a rubrica ao pé da letra, sem\nbajulação e sem premiar resposta longa — verbosidade não é qualidade, e você deve\nignorar o tamanho do texto como proxy de qualidade. Você não tem preferência pelo\nestilo de nenhum modelo; julga apenas a substância técnica contra as evidências do\nincidente.\n\nRigor NÃO é rebaixar tudo por precaução. Dê a nota que a evidência sustenta: um critério\ncujo requisito está claramente atendido E ancorado em sinal real dos artefatos\n(config/métrica/log) merece **2**, não 1. Reserve o **1** para o caso genuinamente\nparcial (o requisito aparece pela metade) e o **0** para o ausente ou errado. Só prefira\na nota menor quando estiver de fato dividido entre duas — nunca como reflexo.\n</role>\n\n<tarefa>\nAvaliar a RCA em <output_avaliado> — produzida para o incidente descrito em <input> —\naplicando EXATAMENTE a <rubrica>. Raciocine ANTES de pontuar. Pontue cada um dos quatro\ncritérios na escala 0/1/2, some o total (0–8) e decida o veredito pela regra de decisão\nda rubrica. Cada nota precisa ser justificada por uma âncora concreta (o que na RCA a\nsustenta ou a derruba), não por impressão geral.\n</tarefa>\n\n<input>\nSistema: Cerebro — indexação e busca (serviço Java sobre Elasticsearch/JVM)\nJanela / sintoma relatado: 08:00–10:00 UTC — buscas lentas e, em alguns casos, resultados parciais\nContexto adicional: reindex noturno agendado 02:00 deveria terminar ~03:30; ainda em 41% às 10:00\n\n<config>\n# cerebro.yaml — configuração do cluster Elasticsearch (repositório de infra)\ncerebro:\n  shards: 12\n  replicas_per_shard: 1\n  jvm_heap: 8g\n  refresh_interval: 1s\n  reindex_job:\n    schedule: \"0 2 * * *\"     # roda todo dia às 02:00\n    avg_duration_min: 90      # normalmente termina ~03:30\n  query_cache:\n    enabled: true\n    size_mb: 512\n</config>\n\n<metricas>\ntimestamp              search_p99_ms   indexed_docs_per_s   heap_used_pct   cache_hit_pct\n2026-05-13 08:00 UTC   850             4200                 61              74\n2026-05-13 08:30 UTC   1100            4100                 68              71\n2026-05-13 09:00 UTC   2300            9800                 79              58\n2026-05-13 09:30 UTC   4100            11200                88              41\n2026-05-13 10:00 UTC   6700            12400                94              29\n</metricas>\n\n<logs>\n[08:02] reindex task [88123] created 3.8M/10M (38%); [08:41] IndexingMemoryController\nthrottling shard 7 \"segment writing can't keep up\"; [09:12/09:58] JvmGcMonitorService\ngc old 1.1s→1.8s, heap ~7.6gb/8gb; [09:03→09:58] ThreadPool write queue 150→200/200,\nEsRejectedExecutionException, 1284 bulks rejeitados/5min; [09:31→09:58]\nHierarchyCircuitBreakerService 86%→96% tripped; [09:58] search returned partial\nresults 11/12 shards; [09:58] IndicesQueryCache hit_ratio 0.29; [10:01]\nCircuitBreakingException Data too large 7.9gb/8gb; [10:05] all shards failed 3/20 queries.\n[09:58:44] reindex [88123] still running, 4.1M/10M (41%), ETA unknown.\n</logs>\n</input>\n\n<output_avaliado>\nDiagnóstico: a busca do Cerebro está lenta. O search_p99_ms subiu de 850ms para\n6700ms na janela e algumas buscas voltam com resultado parcial (11/12 shards). O\ncache de query também está ruim: o cache_hit_pct caiu para 29%, o que explica a\nlentidão — com menos cache hit, cada busca reprocessa e fica mais cara. É a causa do\nproblema.\n\nO que fazer:\n- Aumentar o timeout de busca de 5s para 15s para as queries pararem de estourar e\n  parar de voltar parcial.\n- Aumentar o query_cache.size_mb de 512 para 2048 para o hit ratio voltar a subir e\n  as buscas ficarem rápidas de novo.\n- Se ainda estiver lento, subir o jvm_heap de 8g para 16g.\n\nCom isso a latência de busca volta ao normal. O problema está resolvido.\n</output_avaliado>\n\n<rubrica>\nRUBRICA — Análise de causa-raiz (RCA). Quatro critérios, escala 0/1/2 cada\n(0 = não atende, 1 = parcial, 2 = atende), total de 0 a 8.\n\nC1. CAUSA-RAIZ CORRETA — 2: aponta o reindex travado saturando o heap\ncompartilhado (→ circuit breaker, timeouts, queda de cache) como ORIGEM da\ncadeia; 1: cita heap/reindex mas mistura com sintoma; 0: para no sintoma\n(\"busca lenta\", \"cache baixo\") ou aponta causa errada.\n\nC2. CORRELAÇÃO × CAUSA — 2: separa causa de consequência (cache hit e latência\nde busca são EFEITO da pressão de heap); 1: separa em parte; 0: trata um efeito\n(cache/busca) como origem.\n\nC3. AÇÃO PROPORCIONAL — 2: mitigação que ataca a ORIGEM (conter/pausar/reagendar\no reindex) + correção definitiva estrutural, dimensionada; 1: parcial ou que só\nmaquia o sintoma (subir timeout/heap sem tocar no reindex); 0: ausente/incoerente.\n\nC4. HONESTIDADE EPISTÊMICA — 2: reconhece lacunas dos dados, avalia hipótese\nalternativa e declara confiança; 1: incerteza vaga; 0: fabrica certeza/inventa dado.\n\nREGRA DE DECISÃO: pass=true só se total >= 6 E nenhum critério == 0.\n\n</rubrica>\n\n<como_pontuar>\nÂncoras rápidas para calibrar a escala (não são a RCA avaliada — são só referência de\ncomo aplicar as notas):\n\n- C1 (causa-raiz) = 2 quando a RCA nomeia a ORIGEM da cadeia e a liga ao efeito com\n  sinal — ex.: \"o reindex agendado, ainda em 41% muito além dos ~90min esperados,\n  sustentou carga de escrita que saturou o heap de 8g e disparou o circuit breaker;\n  a busca lenta é efeito disso\". C1 = 0 quando a RCA para no efeito — ex.: \"a busca\n  está lenta\" ou \"o cache está baixo\" tratados como causa.\n- C2 (correlação × causa) = 2 quando diz explicitamente que a queda de cache_hit e a\n  latência de busca são CONSEQUÊNCIA da pressão de heap, não origem. = 0 quando culpa\n  o cache ou a busca como causa.\n- C3 (ação) = 2 quando a mitigação ataca a origem (conter/pausar/reagendar o reindex) e\n  há correção definitiva estrutural. = 1 quando só sobe timeout/heap (maquia o sintoma).\n- C4 (honestidade) = 2 quando aponta ao menos uma lacuna dos dados E avalia uma hipótese\n  alternativa E declara confiança. = 0 quando crava certeza (\"resolvido\") sem nada disso.\n\nUma RCA que acerta a origem com evidência cruzada, separa efeito de causa, propõe ação\nna origem e reconhece lacunas é uma RCA forte: pontue-a como tal (perto de 8), não a\nrebaixe por cautela.\n</como_pontuar>\n\n<instrucoes_de_saida>\nRetorne SOMENTE um objeto JSON válido (sem cercar em markdown, sem texto antes ou\ndepois), com as chaves EXATAMENTE nesta ordem — o raciocínio vem antes das notas de\npropósito:\n\n{\n  \"raciocinio\": \"<2 a 5 linhas correlacionando a RCA avaliada com as evidências do input, ANTES de pontuar>\",\n  \"criterios\": {\n    \"causa_raiz_correta\":      {\"nota\": 0, \"justificativa\": \"<âncora concreta>\"},\n    \"correlacao_vs_causa\":     {\"nota\": 0, \"justificativa\": \"<âncora concreta>\"},\n    \"acao_proporcional\":       {\"nota\": 0, \"justificativa\": \"<âncora concreta>\"},\n    \"honestidade_epistemica\":  {\"nota\": 0, \"justificativa\": \"<âncora concreta>\"}\n  },\n  \"total\": 0,\n  \"pass\": false,\n  \"score\": 0.0,\n  \"reason\": \"<1 a 2 linhas: por que passou ou reprovou, citando o critério decisivo>\"\n}\n\nRegras de preenchimento:\n- \"total\" = soma das quatro notas (inteiro de 0 a 8).\n- \"pass\" = true SOMENTE se total >= 6 E nenhuma das quatro notas for 0; caso contrário false.\n- \"score\" = total / 8 (número entre 0.0 e 1.0).\n- Não invente evidência: só use o que está em <input> e em <output_avaliado>.\n</instrucoes_de_saida>\n"
+              }
+            }
+          ]
+        },
+        "id": "392d34f4-00e9-4c62-92e8-d2918361be70",
+        "latencyMs": 3,
+        "namedScores": {
+          "qualidade-do-juiz": 0.125
+        },
+        "prompt": {
+          "raw": "Diagnóstico: a busca do Cerebro está lenta. O search_p99_ms subiu de 850ms para\n6700ms na janela e algumas buscas voltam com resultado parcial (11/12 shards). O\ncache de query também está ruim: o cache_hit_pct caiu para 29%, o que explica a\nlentidão — com menos cache hit, cada busca reprocessa e fica mais cara. É a causa do\nproblema.\n\nO que fazer:\n- Aumentar o timeout de busca de 5s para 15s para as queries pararem de estourar e\n  parar de voltar parcial.\n- Aumentar o query_cache.size_mb de 512 para 2048 para o hit ratio voltar a subir e\n  as buscas ficarem rápidas de novo.\n- Se ainda estiver lento, subir o jvm_heap de 8g para 16g.\n\nCom isso a latência de busca volta ao normal. O problema está resolvido.",
+          "label": "{{ saida_rca }}",
+          "config": {
+            "provider": {
+              "id": "google:gemini-2.5-flash",
+              "config": {
+                "temperature": 0
+              }
+            }
+          }
+        },
+        "promptId": "b547761a80b589782a60cb433d1b778223828a59f7992d95f455a215d2923825",
+        "promptIdx": 0,
+        "provider": {
+          "id": "echo",
+          "label": ""
+        },
+        "response": {
+          "output": "Diagnóstico: a busca do Cerebro está lenta. O search_p99_ms subiu de 850ms para\n6700ms na janela e algumas buscas voltam com resultado parcial (11/12 shards). O\ncache de query também está ruim: o cache_hit_pct caiu para 29%, o que explica a\nlentidão — com menos cache hit, cada busca reprocessa e fica mais cara. É a causa do\nproblema.\n\nO que fazer:\n- Aumentar o timeout de busca de 5s para 15s para as queries pararem de estourar e\n  parar de voltar parcial.\n- Aumentar o query_cache.size_mb de 512 para 2048 para o hit ratio voltar a subir e\n  as buscas ficarem rápidas de novo.\n- Se ainda estiver lento, subir o jvm_heap de 8g para 16g.\n\nCom isso a latência de busca volta ao normal. O problema está resolvido.",
+          "raw": "Diagnóstico: a busca do Cerebro está lenta. O search_p99_ms subiu de 850ms para\n6700ms na janela e algumas buscas voltam com resultado parcial (11/12 shards). O\ncache de query também está ruim: o cache_hit_pct caiu para 29%, o que explica a\nlentidão — com menos cache hit, cada busca reprocessa e fica mais cara. É a causa do\nproblema.\n\nO que fazer:\n- Aumentar o timeout de busca de 5s para 15s para as queries pararem de estourar e\n  parar de voltar parcial.\n- Aumentar o query_cache.size_mb de 512 para 2048 para o hit ratio voltar a subir e\n  as buscas ficarem rápidas de novo.\n- Se ainda estiver lento, subir o jvm_heap de 8g para 16g.\n\nCom isso a latência de busca volta ao normal. O problema está resolvido.",
+          "cost": 0,
+          "cached": false,
+          "tokenUsage": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "numRequests": 1
+          },
+          "isRefusal": false,
+          "metadata": {}
+        },
+        "score": 0.125,
+        "success": false,
+        "testCase": {
+          "description": "RCA fraca (só sintoma) — esperado pass=false, total ~1",
+          "vars": {
+            "sistema": "Cerebro — indexação e busca (serviço Java sobre Elasticsearch/JVM)",
+            "janela": "08:00–10:00 UTC — buscas lentas e, em alguns casos, resultados parciais",
+            "contexto_extra": "reindex noturno agendado 02:00 deveria terminar ~03:30; ainda em 41% às 10:00\n",
+            "config": "# cerebro.yaml — configuração do cluster Elasticsearch (repositório de infra)\ncerebro:\n  shards: 12\n  replicas_per_shard: 1\n  jvm_heap: 8g\n  refresh_interval: 1s\n  reindex_job:\n    schedule: \"0 2 * * *\"     # roda todo dia às 02:00\n    avg_duration_min: 90      # normalmente termina ~03:30\n  query_cache:\n    enabled: true\n    size_mb: 512\n",
+            "metricas": "timestamp              search_p99_ms   indexed_docs_per_s   heap_used_pct   cache_hit_pct\n2026-05-13 08:00 UTC   850             4200                 61              74\n2026-05-13 08:30 UTC   1100            4100                 68              71\n2026-05-13 09:00 UTC   2300            9800                 79              58\n2026-05-13 09:30 UTC   4100            11200                88              41\n2026-05-13 10:00 UTC   6700            12400                94              29\n",
+            "logs": "[08:02] reindex task [88123] created 3.8M/10M (38%); [08:41] IndexingMemoryController\nthrottling shard 7 \"segment writing can't keep up\"; [09:12/09:58] JvmGcMonitorService\ngc old 1.1s→1.8s, heap ~7.6gb/8gb; [09:03→09:58] ThreadPool write queue 150→200/200,\nEsRejectedExecutionException, 1284 bulks rejeitados/5min; [09:31→09:58]\nHierarchyCircuitBreakerService 86%→96% tripped; [09:58] search returned partial\nresults 11/12 shards; [09:58] IndicesQueryCache hit_ratio 0.29; [10:01]\nCircuitBreakingException Data too large 7.9gb/8gb; [10:05] all shards failed 3/20 queries.\n[09:58:44] reindex [88123] still running, 4.1M/10M (41%), ETA unknown.\n",
+            "saida_rca": "file://calibracao\\rca-fraca.txt"
+          },
+          "assert": [
+            {
+              "type": "llm-rubric",
+              "rubricPrompt": "file://rubrica-juiz.md",
+              "value": "RUBRICA — Análise de causa-raiz (RCA). Quatro critérios, escala 0/1/2 cada\n(0 = não atende, 1 = parcial, 2 = atende), total de 0 a 8.\n\nC1. CAUSA-RAIZ CORRETA — 2: aponta o reindex travado saturando o heap\ncompartilhado (→ circuit breaker, timeouts, queda de cache) como ORIGEM da\ncadeia; 1: cita heap/reindex mas mistura com sintoma; 0: para no sintoma\n(\"busca lenta\", \"cache baixo\") ou aponta causa errada.\n\nC2. CORRELAÇÃO × CAUSA — 2: separa causa de consequência (cache hit e latência\nde busca são EFEITO da pressão de heap); 1: separa em parte; 0: trata um efeito\n(cache/busca) como origem.\n\nC3. AÇÃO PROPORCIONAL — 2: mitigação que ataca a ORIGEM (conter/pausar/reagendar\no reindex) + correção definitiva estrutural, dimensionada; 1: parcial ou que só\nmaquia o sintoma (subir timeout/heap sem tocar no reindex); 0: ausente/incoerente.\n\nC4. HONESTIDADE EPISTÊMICA — 2: reconhece lacunas dos dados, avalia hipótese\nalternativa e declara confiança; 1: incerteza vaga; 0: fabrica certeza/inventa dado.\n\nREGRA DE DECISÃO: pass=true só se total >= 6 E nenhum critério == 0.\n",
+              "metric": "qualidade-do-juiz"
+            }
+          ],
+          "options": {
+            "provider": {
+              "id": "google:gemini-2.5-flash",
+              "config": {
+                "temperature": 0
+              }
+            }
+          },
+          "metadata": {}
+        },
+        "testIdx": 1,
+        "tokenUsage": {
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "total": 0,
+          "numRequests": 1,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "assertions": {
+            "total": 6031,
+            "prompt": 2522,
+            "completion": 582,
+            "cached": 0,
+            "numRequests": 1,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            }
+          }
+        },
+        "vars": {
+          "sistema": "Cerebro — indexação e busca (serviço Java sobre Elasticsearch/JVM)",
+          "janela": "08:00–10:00 UTC — buscas lentas e, em alguns casos, resultados parciais",
+          "contexto_extra": "reindex noturno agendado 02:00 deveria terminar ~03:30; ainda em 41% às 10:00\n",
+          "config": "# cerebro.yaml — configuração do cluster Elasticsearch (repositório de infra)\ncerebro:\n  shards: 12\n  replicas_per_shard: 1\n  jvm_heap: 8g\n  refresh_interval: 1s\n  reindex_job:\n    schedule: \"0 2 * * *\"     # roda todo dia às 02:00\n    avg_duration_min: 90      # normalmente termina ~03:30\n  query_cache:\n    enabled: true\n    size_mb: 512\n",
+          "metricas": "timestamp              search_p99_ms   indexed_docs_per_s   heap_used_pct   cache_hit_pct\n2026-05-13 08:00 UTC   850             4200                 61              74\n2026-05-13 08:30 UTC   1100            4100                 68              71\n2026-05-13 09:00 UTC   2300            9800                 79              58\n2026-05-13 09:30 UTC   4100            11200                88              41\n2026-05-13 10:00 UTC   6700            12400                94              29\n",
+          "logs": "[08:02] reindex task [88123] created 3.8M/10M (38%); [08:41] IndexingMemoryController\nthrottling shard 7 \"segment writing can't keep up\"; [09:12/09:58] JvmGcMonitorService\ngc old 1.1s→1.8s, heap ~7.6gb/8gb; [09:03→09:58] ThreadPool write queue 150→200/200,\nEsRejectedExecutionException, 1284 bulks rejeitados/5min; [09:31→09:58]\nHierarchyCircuitBreakerService 86%→96% tripped; [09:58] search returned partial\nresults 11/12 shards; [09:58] IndicesQueryCache hit_ratio 0.29; [10:01]\nCircuitBreakingException Data too large 7.9gb/8gb; [10:05] all shards failed 3/20 queries.\n[09:58:44] reindex [88123] still running, 4.1M/10M (41%), ETA unknown.\n",
+          "saida_rca": "file://calibracao\\rca-fraca.txt"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 1
+      }
+    ],
+    "stats": {
+      "successes": 1,
+      "failures": 1,
+      "errors": 0,
+      "tokenUsage": {
+        "prompt": 0,
+        "completion": 0,
+        "cached": 0,
+        "total": 0,
+        "numRequests": 2,
+        "completionDetails": {
+          "reasoning": 0,
+          "acceptedPrediction": 0,
+          "rejectedPrediction": 0,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0
+        },
+        "assertions": {
+          "total": 13574,
+          "prompt": 6597,
+          "completion": 1255,
+          "cached": 0,
+          "numRequests": 0,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          }
+        }
+      },
+      "durationMs": 15325,
+      "evaluationDurationMs": 15325
+    }
+  },
+  "config": {
+    "tags": {},
+    "description": "Calibração do juiz da RCA — RCA forte (deve passar) x RCA fraca (deve reprovar)",
+    "prompts": [
+      "{{ saida_rca }}"
+    ],
+    "providers": [
+      {
+        "id": "echo"
+      }
+    ],
+    "tests": [
+      {
+        "description": "RCA forte (referência) — esperado pass=true, total ~8",
+        "vars": {
+          "saida_rca": "file://calibracao/rca-forte.txt"
+        }
+      },
+      {
+        "description": "RCA fraca (só sintoma) — esperado pass=false, total ~1",
+        "vars": {
+          "saida_rca": "file://calibracao/rca-fraca.txt"
+        }
+      }
+    ],
+    "env": {},
+    "defaultTest": {
+      "vars": {
+        "sistema": "Cerebro — indexação e busca (serviço Java sobre Elasticsearch/JVM)",
+        "janela": "08:00–10:00 UTC — buscas lentas e, em alguns casos, resultados parciais",
+        "contexto_extra": "reindex noturno agendado 02:00 deveria terminar ~03:30; ainda em 41% às 10:00\n",
+        "config": "# cerebro.yaml — configuração do cluster Elasticsearch (repositório de infra)\ncerebro:\n  shards: 12\n  replicas_per_shard: 1\n  jvm_heap: 8g\n  refresh_interval: 1s\n  reindex_job:\n    schedule: \"0 2 * * *\"     # roda todo dia às 02:00\n    avg_duration_min: 90      # normalmente termina ~03:30\n  query_cache:\n    enabled: true\n    size_mb: 512\n",
+        "metricas": "timestamp              search_p99_ms   indexed_docs_per_s   heap_used_pct   cache_hit_pct\n2026-05-13 08:00 UTC   850             4200                 61              74\n2026-05-13 08:30 UTC   1100            4100                 68              71\n2026-05-13 09:00 UTC   2300            9800                 79              58\n2026-05-13 09:30 UTC   4100            11200                88              41\n2026-05-13 10:00 UTC   6700            12400                94              29\n",
+        "logs": "[08:02] reindex task [88123] created 3.8M/10M (38%); [08:41] IndexingMemoryController\nthrottling shard 7 \"segment writing can't keep up\"; [09:12/09:58] JvmGcMonitorService\ngc old 1.1s→1.8s, heap ~7.6gb/8gb; [09:03→09:58] ThreadPool write queue 150→200/200,\nEsRejectedExecutionException, 1284 bulks rejeitados/5min; [09:31→09:58]\nHierarchyCircuitBreakerService 86%→96% tripped; [09:58] search returned partial\nresults 11/12 shards; [09:58] IndicesQueryCache hit_ratio 0.29; [10:01]\nCircuitBreakingException Data too large 7.9gb/8gb; [10:05] all shards failed 3/20 queries.\n[09:58:44] reindex [88123] still running, 4.1M/10M (41%), ETA unknown.\n"
+      },
+      "options": {
+        "provider": {
+          "id": "google:gemini-2.5-flash",
+          "config": {
+            "temperature": 0
+          }
+        }
+      },
+      "assert": [
+        {
+          "type": "llm-rubric",
+          "rubricPrompt": "file://rubrica-juiz.md",
+          "value": "RUBRICA — Análise de causa-raiz (RCA). Quatro critérios, escala 0/1/2 cada\n(0 = não atende, 1 = parcial, 2 = atende), total de 0 a 8.\n\nC1. CAUSA-RAIZ CORRETA — 2: aponta o reindex travado saturando o heap\ncompartilhado (→ circuit breaker, timeouts, queda de cache) como ORIGEM da\ncadeia; 1: cita heap/reindex mas mistura com sintoma; 0: para no sintoma\n(\"busca lenta\", \"cache baixo\") ou aponta causa errada.\n\nC2. CORRELAÇÃO × CAUSA — 2: separa causa de consequência (cache hit e latência\nde busca são EFEITO da pressão de heap); 1: separa em parte; 0: trata um efeito\n(cache/busca) como origem.\n\nC3. AÇÃO PROPORCIONAL — 2: mitigação que ataca a ORIGEM (conter/pausar/reagendar\no reindex) + correção definitiva estrutural, dimensionada; 1: parcial ou que só\nmaquia o sintoma (subir timeout/heap sem tocar no reindex); 0: ausente/incoerente.\n\nC4. HONESTIDADE EPISTÊMICA — 2: reconhece lacunas dos dados, avalia hipótese\nalternativa e declara confiança; 1: incerteza vaga; 0: fabrica certeza/inventa dado.\n\nREGRA DE DECISÃO: pass=true só se total >= 6 E nenhum critério == 0.\n",
+          "metric": "qualidade-do-juiz"
+        }
+      ],
+      "metadata": {}
+    },
+    "outputPath": [
+      "calib.json"
+    ],
+    "extensions": [],
+    "metadata": {},
+    "evaluateOptions": {}
+  },
+  "shareableUrl": null,
+  "metadata": {
+    "promptfooVersion": "0.121.17",
+    "nodeVersion": "v24.14.1",
+    "platform": "win32",
+    "arch": "x64",
+    "exportedAt": "2026-07-02T17:03:02.106Z",
+    "evaluationCreatedAt": "2026-07-02T17:02:46.343Z"
+  },
+  "vars": [
+    "sistema",
+    "janela",
+    "contexto_extra",
+    "config",
+    "metricas",
+    "logs",
+    "saida_rca"
+  ],
+  "runtimeOptions": {
+    "eventSource": "cli",
+    "showProgressBar": true,
+    "repeat": 1,
+    "maxConcurrency": 4,
+    "cache": false
+  }
+}

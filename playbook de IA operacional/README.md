@@ -42,7 +42,7 @@ nunca pela técnica de construção.
 | 06 | Endurecendo a NetworkPolicy do Sentinel | Segurança | [checkpoint-06-networkpolicy-sentinel.md](checkpoint-06-networkpolicy-sentinel.md) | [seguranca/endurecer-networkpolicy](seguranca/endurecer-networkpolicy/) |
 | 07 | A biblioteca vira código | Meta | [checkpoint-07-biblioteca-como-codigo.md](checkpoint-07-biblioteca-como-codigo.md) | [CLAUDE.md](CLAUDE.md) (contrato de convenções) |
 | 08 | Testes determinísticos com promptfoo | Avaliação | [checkpoint-08-testes-determinsticos-promptfoo.md](checkpoint-08-testes-determinsticos-promptfoo.md) | `promptfooconfig.yaml` nos 3 itens de saída estruturada |
-| 09 | _(a definir)_ | — | — | — |
+| 09 | Gate de qualidade com LLM-as-judge | Avaliação | [checkpoint-09-gate-llm-as-judge.md](checkpoint-09-gate-llm-as-judge.md) | juiz + rubrica em [sre/analise-causa-raiz](sre/analise-causa-raiz/) |
 | 10 | _(a definir)_ | — | — | — |
 
 ## Catálogo de prompts por domínio

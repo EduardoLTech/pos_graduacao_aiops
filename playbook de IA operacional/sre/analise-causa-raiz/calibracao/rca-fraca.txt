@@ -1,0 +1,14 @@
+Diagnóstico: a busca do Cerebro está lenta. O search_p99_ms subiu de 850ms para
+6700ms na janela e algumas buscas voltam com resultado parcial (11/12 shards). O
+cache de query também está ruim: o cache_hit_pct caiu para 29%, o que explica a
+lentidão — com menos cache hit, cada busca reprocessa e fica mais cara. É a causa do
+problema.
+
+O que fazer:
+- Aumentar o timeout de busca de 5s para 15s para as queries pararem de estourar e
+  parar de voltar parcial.
+- Aumentar o query_cache.size_mb de 512 para 2048 para o hit ratio voltar a subir e
+  as buscas ficarem rápidas de novo.
+- Se ainda estiver lento, subir o jvm_heap de 8g para 16g.
+
+Com isso a latência de busca volta ao normal. O problema está resolvido.

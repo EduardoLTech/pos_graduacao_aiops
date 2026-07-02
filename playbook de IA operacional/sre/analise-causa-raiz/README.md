@@ -51,13 +51,35 @@ Trate os artefatos como **produção** antes de enviá-los a um provedor externo
 - **Confirmar que os logs não trazem payload/PII** (corpo de requisição, tokens).
 - Preferir provedor com termos de **não-treinamento / retenção zero** (enterprise).
 
-## Avaliação (ganchos)
+## Avaliação — gate de qualidade (LLM-as-judge)
 
-- **Rubrica**: chegou à causa-raiz (não ao sintoma)? cada elo tem sinal das 3 fontes?
-  mitigação ataca a origem? avaliou hipótese alternativa? declarou confiança/lacunas?
-- **Golden-answer** no promptfoo, comparando contra a RCA de referência.
-- **Chain-of-Verification** como passo extra para outputs que vão guiar uma ação em
-  produção (gerar perguntas de verificação e respondê-las em contexto isolado).
+Saída aberta não tem resposta única checável por regex, então o teste deste item é um
+**juiz LLM** que aplica uma rubrica de 4 critérios e **reprova** a RCA que não chega à
+causa. Roda a cada alteração do `prompt.md`. Arquivos na pasta:
+
+| Arquivo | Papel |
+|---|---|
+| `promptfooconfig.yaml` | Gate: gera a RCA (`openrouter:openai/gpt-4o-mini`) e a julga (`google:gemini-2.5-flash`). |
+| `rubrica-juiz.md` | O `rubricPrompt` — role + input + output avaliado + rubrica + saída JSON. |
+| `promptfooconfig.calibracao.yaml` | Banco de calibração: injeta 2 saídas fixas (forte/fraca) via `echo` para conferir o juiz. |
+| `calibracao/rca-forte.txt`, `rca-fraca.txt` | As saídas de referência (calibração). |
+
+**Rubrica** (0/1/2 por critério, total 0–8; aprova só com `total ≥ 6` e **nenhum critério
+zerado**): **C1** causa-raiz correta (não sintoma) · **C2** correlação × causa (efeito ≠
+origem) · **C3** ação proporcional (ataca a origem) · **C4** honestidade epistêmica (lacunas
++ hipótese alternativa + confiança).
+
+**Juiz de família diferente da geração** (Gemini/Google julga o que o gpt-4o-mini/OpenAI
+gerou) para mitigar o **self-preference**. Executar:
+
+```bash
+export GOOGLE_API_KEY="..."; export OPENROUTER_API_KEY="..."
+promptfoo eval -c promptfooconfig.calibracao.yaml --no-cache   # calibra: forte→pass, fraca→fail
+promptfoo eval -c promptfooconfig.yaml --no-cache              # gate sobre a RCA gerada
+```
+
+Complemento possível: **Chain-of-Verification** como passo extra antes de qualquer ação em
+produção guiada por esta RCA (gerar perguntas de verificação e respondê-las em contexto isolado).
 
 ## Versão
 
