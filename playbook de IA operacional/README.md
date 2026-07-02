@@ -19,6 +19,7 @@ documentado para qualquer engenheiro pegar e confiar.
 
 ```
 playbook de IA operacional/
+├── CLAUDE.md                       ← contrato de convenções da biblioteca (estrutura, frontmatter, git)
 ├── README.md                       ← este índice
 ├── checkpoint-NN-<slug>.md         ← resposta completa de cada checkpoint do desafio
 └── <dominio>/<slug>/               ← item de catálogo reusável
@@ -39,8 +40,8 @@ nunca pela técnica de construção.
 | 04 | Segurando a sobrecarga do Relay (backpressure) | Arquitetura | [checkpoint-04-backpressure-relay.md](checkpoint-04-backpressure-relay.md) | [arquitetura/decisao-arquitetural-tradeoff](arquitetura/decisao-arquitetural-tradeoff/) |
 | 05 | Migrando o Forge de lote para tempo real | Data | [checkpoint-05-migracao-forge-streaming.md](checkpoint-05-migracao-forge-streaming.md) | [data/migracao-incremental-encadeada](data/migracao-incremental-encadeada/) |
 | 06 | Endurecendo a NetworkPolicy do Sentinel | Segurança | [checkpoint-06-networkpolicy-sentinel.md](checkpoint-06-networkpolicy-sentinel.md) | [seguranca/endurecer-networkpolicy](seguranca/endurecer-networkpolicy/) |
-| 07 | _(a definir)_ | — | — | — |
-| 08 | _(a definir)_ | — | — | — |
+| 07 | A biblioteca vira código | Meta | [checkpoint-07-biblioteca-como-codigo.md](checkpoint-07-biblioteca-como-codigo.md) | [CLAUDE.md](CLAUDE.md) (contrato de convenções) |
+| 08 | Testes determinísticos com promptfoo | Avaliação | [checkpoint-08-testes-determinsticos-promptfoo.md](checkpoint-08-testes-determinsticos-promptfoo.md) | `promptfooconfig.yaml` nos 3 itens de saída estruturada |
 | 09 | _(a definir)_ | — | — | — |
 | 10 | _(a definir)_ | — | — | — |
 

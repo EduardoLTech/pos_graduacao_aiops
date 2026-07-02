@@ -1,0 +1,99 @@
+# promptfooconfig.yaml — teste determinístico do Endurecimento de NetworkPolicy
+# Roda o prompt.md (elo de GERAÇÃO) desta pasta contra o manifesto permissivo + regras + mapa.
+# Uso: (na raiz do repo, com as chaves exportadas)
+#   promptfoo eval -c "seguranca/endurecer-networkpolicy/promptfooconfig.yaml"
+description: NetworkPolicy endurecida — YAML default-deny, sem allow-all, fluxos mínimos comentados
+
+prompts:
+  - file://prompt.md
+
+providers:
+  # temperature 0.0 reduz variância — combina com a avaliação determinística
+  - id: google:gemini-2.5-flash   # provider 1
+    config:
+      temperature: 0.0
+      generationConfig:
+        thinkingConfig:
+          thinkingBudget: 0   # desliga o raciocínio: cabe no teto de latência (5s) e custo
+  # provider 2, outro fornecedor (gpt-4o-mini via OpenRouter) — exporte OPENROUTER_API_KEY
+  - id: openrouter:openai/gpt-4o-mini
+    config:
+      temperature: 0.0
+
+defaultTest:
+  vars:
+    namespace: sentinel-prod
+    provedor: nenhum
+  assert:
+    - type: latency
+      threshold: 5000
+    # custo <= US$ 0,01: usa o custo nativo quando o provider reporta (ex. Gemini);
+    # calcula pelos tokens quando não reporta (ex. OpenRouter). gpt-4o-mini: in 0,15 / out 0,60 por 1M.
+    - type: javascript
+      value: |
+        const resp = context.providerResponse || {};
+        let cost = resp.cost;
+        if (cost == null) {
+          const u = resp.tokenUsage || {};
+          cost = (u.prompt || 0) * 0.00000015 + (u.completion || 0) * 0.0000006;
+        }
+        return { pass: cost <= 0.01, score: 1, reason: 'custo estimado US$ ' + cost.toFixed(6) };
+
+tests:
+  - vars:
+      manifesto: |
+        # manifesto barrado pela revisão de segurança — permissivo demais
+        apiVersion: networking.k8s.io/v1
+        kind: NetworkPolicy
+        metadata:
+          name: sentinel-allow
+          namespace: sentinel-prod
+        spec:
+          podSelector: {}          # aplica a todos os pods do namespace
+          policyTypes:
+            - Ingress
+            - Egress
+          ingress:
+            - {}                   # libera QUALQUER origem
+          egress:
+            - {}                   # libera QUALQUER destino
+      regras_padrao: |
+        NetworkPolicy para o namespace "sentinel-prod":
+        - pods do Sentinel só aceitam tráfego de entrada do Relay (consumo de
+          eventos) e do gateway de API da plataforma
+        - pods do Sentinel só fazem saída para: Forge (warehouse, porta 5432),
+          Cerebro (busca, porta 9200) e DNS interno
+        - nada de "allow all" em ingress ou egress
+        - política default-deny explícita no namespace
+        - toda regra precisa de comentário dizendo qual fluxo legítimo ela libera
+      mapa_servicos: |
+        Sentinel     -> namespace sentinel-prod, pods com label app=sentinel
+        Relay        -> namespace relay-prod,    pods com label app=relay
+        API gateway  -> namespace edge,          pods com label app=api-gateway
+        Forge        -> namespace forge-prod,    pods com label app=forge,   porta 5432 (Postgres do warehouse)
+        Cerebro      -> namespace cerebro-prod,  pods com label app=cerebro, porta 9200 (Elasticsearch)
+        DNS interno  -> namespace kube-system,   pods com label k8s-app=kube-dns, porta 53
+    assert:
+      # é YAML de NetworkPolicy com as duas direções em policyTypes
+      - type: contains
+        value: "kind: NetworkPolicy"
+      - type: regex
+        value: "policyTypes:[\\s\\S]*Ingress"
+      - type: regex
+        value: "policyTypes:[\\s\\S]*Egress"
+      # nenhuma regra allow-all NA POLICY GERADA: procura "- {}" só como item de lista YAML
+      # (linha inteira). Assim ignora as menções em prosa do Diagnóstico (ex.: "`ingress: - {}`")
+      # e independe de como a IA cerca o bloco de código — robusto entre providers.
+      - type: javascript
+        value: "!/^\\s*-\\s*\\{\\s*\\}\\s*$/m.test(output)"
+      # egress libera Forge (5432) e Cerebro (9200)
+      - type: contains
+        value: "5432"
+      - type: contains
+        value: "9200"
+      # ingress libera o Relay (app: relay)
+      - type: regex
+        value: "app:\\s*relay"
+      # toda regra tem comentário (# presente na saída)
+      - type: contains
+        value: "#"

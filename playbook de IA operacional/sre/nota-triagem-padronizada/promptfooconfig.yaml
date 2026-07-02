@@ -1,0 +1,79 @@
+# promptfooconfig.yaml — teste determinístico da Nota de triagem padronizada
+# Roda o prompt.md desta pasta contra os 3 alertas crus e verifica o padrão de 5 campos.
+# Uso: (na raiz do repo, com as chaves exportadas)
+#   promptfoo eval -c "sre/nota-triagem-padronizada/promptfooconfig.yaml"
+description: Nota de triagem padronizada — 5 campos fixos, handle de escalonamento, concisão
+
+prompts:
+  - file://prompt.md
+
+providers:
+  # temperature 0.0 reduz variância — combina com a avaliação determinística
+  - id: google:gemini-2.5-flash   # provider 1
+    config:
+      temperature: 0.0
+      generationConfig:
+        thinkingConfig:
+          thinkingBudget: 0   # desliga o raciocínio: cabe no teto de latência (5s) e custo
+  # provider 2, outro fornecedor (gpt-4o-mini via OpenRouter) — exporte OPENROUTER_API_KEY
+  - id: openrouter:openai/gpt-4o-mini
+    config:
+      temperature: 0.0
+
+# Asserts aplicados a TODA saída (os 3 requisitos + os 2 limites operacionais).
+defaultTest:
+  vars:
+    contexto_extra: nenhum
+  assert:
+    # 1) os cinco rótulos fixos
+    - type: contains
+      value: "ALERTA:"
+    - type: contains
+      value: "IMPACTO:"
+    - type: contains
+      value: "HIPÓTESE INICIAL:"
+    - type: contains
+      value: "AÇÃO IMEDIATA:"
+    - type: contains
+      value: "ESCALAR PARA:"
+    # 2) handle de escalonamento no formato @palavra
+    - type: regex
+      value: "ESCALAR PARA:.*@\\w+"
+    # 3) concisão: no máximo 8 linhas não vazias
+    - type: javascript
+      value: |
+        output.split('\n').filter(function (l) { return l.trim().length > 0; }).length <= 8
+    # limites operacionais (qualidade = custo + latência)
+    - type: latency
+      threshold: 5000
+    # custo <= US$ 0,01: usa o custo nativo quando o provider reporta (ex. Gemini);
+    # calcula pelos tokens quando não reporta (ex. OpenRouter). gpt-4o-mini: in 0,15 / out 0,60 por 1M.
+    - type: javascript
+      value: |
+        const resp = context.providerResponse || {};
+        let cost = resp.cost;
+        if (cost == null) {
+          const u = resp.tokenUsage || {};
+          cost = (u.prompt || 0) * 0.00000015 + (u.completion || 0) * 0.0000006;
+        }
+        return { pass: cost <= 0.01, score: 1, reason: 'custo estimado US$ ' + cost.toFixed(6) };
+
+tests:
+  # Entrada 1 — Sentinel, autoscaler no teto
+  - vars:
+      alerta: |
+        2026-05-12 14:02:09 UTC [Sentinel] autoscaler hit max replicas (60/60) on sentinel-api,
+        queue depth on Relay growing 2k/min, CPU avg 88%, tenant stark-industries
+        sending 4x baseline volume after onboarding new region
+
+  # Entrada 2 — Relay, rejeição de ingestão após deploy
+  - vars:
+      alerta: |
+        2026-05-13 03:11:00 UTC [Relay] ingest reject rate 6% for 8min, tenant wakanda-systems,
+        buffer saturated after deploy 02:55
+
+  # Entrada 3 — Forge, lag de consumer subindo
+  - vars:
+      alerta: |
+        2026-05-13 11:40:22 UTC [Forge] consumer lag 9min and climbing, batch forge-batch-ingest
+        delayed after previous job failure, downstream Sentinel starting to lag

@@ -1,0 +1,6 @@
+# Saídas transitórias de execução do promptfoo (--output) — não versionar
+resultado-*.json
+
+# Cache e artefatos locais do promptfoo
+.promptfoo/
+promptfoo-errors.log
