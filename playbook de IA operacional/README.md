@@ -43,7 +43,7 @@ nunca pela técnica de construção.
 | 07 | A biblioteca vira código | Meta | [checkpoint-07-biblioteca-como-codigo.md](checkpoint-07-biblioteca-como-codigo.md) | [CLAUDE.md](CLAUDE.md) (contrato de convenções) |
 | 08 | Testes determinísticos com promptfoo | Avaliação | [checkpoint-08-testes-determinsticos-promptfoo.md](checkpoint-08-testes-determinsticos-promptfoo.md) | `promptfooconfig.yaml` nos 3 itens de saída estruturada |
 | 09 | Gate de qualidade com LLM-as-judge | Avaliação | [checkpoint-09-gate-llm-as-judge.md](checkpoint-09-gate-llm-as-judge.md) | juiz + rubrica em [sre/analise-causa-raiz](sre/analise-causa-raiz/) |
-| 10 | _(a definir)_ | — | — | — |
+| 10 | O playbook em produção contínua | Avaliação / CI | [checkpoint-10-pipeline-producao-continua.md](checkpoint-10-pipeline-producao-continua.md) | pipeline [`.github/workflows/promptfoo.yml`](../.github/workflows/promptfoo.yml) + juiz nos 2 itens de saída aberta restantes |
 
 ## Catálogo de prompts por domínio
 
@@ -74,5 +74,26 @@ nunca pela técnica de construção.
   — cadeia de três elos (diagnóstico → plano faseado least-to-most → runbook por fase)
   para planejar uma migração grande (ex.: lote → orientado a eventos) em passos
   reversíveis e sem big-bang, com gate entre os elos.
+
+## Testes e CI
+
+Cada item carrega o seu `promptfooconfig.yaml` **ao lado do prompt** — o teste viaja junto.
+Cobertura por natureza da saída:
+
+- **Saída estruturada → asserts determinísticos** (regex/contains/javascript + latência e
+  custo): nota de triagem, triagem de pods, endurecer NetworkPolicy.
+- **Saída aberta → LLM-as-judge** (rubrica de 4 critérios, 0–2, corte ≥ 6, nenhum zerado;
+  gerar e julgar em famílias distintas): causa-raiz, decisão com trade-offs, migração (Elo 2).
+
+O pipeline [`.github/workflows/promptfoo.yml`](../.github/workflows/promptfoo.yml) (na raiz
+do repositório git) roda a suíte inteira a cada **pull request** e **push na principal** que
+toque o playbook, e **barra o merge** quando um prompt regride. Cache do promptfoo mantém o
+custo baixo (só o que mudou chama o modelo); chaves dos provedores em **repo secrets**
+(`GOOGLE_API_KEY`, `OPENROUTER_API_KEY`). Rodar a suíte localmente (mesmo laço do CI):
+
+```bash
+cd "playbook de IA operacional"
+find . -name 'promptfooconfig.yaml' | sort | while read c; do promptfoo eval -c "$c" || echo "FAIL $c"; done
+```
 
 

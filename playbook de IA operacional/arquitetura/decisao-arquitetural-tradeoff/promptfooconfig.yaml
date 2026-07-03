@@ -1,0 +1,98 @@
+# promptfooconfig.yaml — GATE de qualidade (LLM-as-judge) da Decisão com trade-offs
+# Saída ABERTA (não há YAML/regex a checar): o gate é um juiz LLM aplicando a rubrica de
+# 4 critérios (0–2, corte >= 6, nenhum zerado). Mesma mecânica do item de causa-raiz
+# (sre/analise-causa-raiz): gerar com uma família, julgar com outra (anti self-preference).
+# Roda a cada alteração do prompt.md — é este eval que o pipeline (CP10) automatiza.
+#
+# Uso (na pasta do item, com as chaves exportadas):
+#   export OPENROUTER_API_KEY="..."   # geração da análise (gpt-4o-mini)
+#   export GOOGLE_API_KEY="..."       # JUIZ (Gemini) — outra família
+#   promptfoo eval -c promptfooconfig.yaml --no-cache
+description: Gate de qualidade da decisão de backpressure — juiz LLM aplicando a rubrica de 4 critérios
+
+prompts:
+  - file://prompt.md
+
+# GERAÇÃO da análise: gpt-4o-mini via OpenRouter (família OpenAI). Decisão aberta →
+# o raciocínio importa; temperature baixa reduz variância entre rodadas.
+providers:
+  - id: openrouter:openai/gpt-4o-mini
+    config:
+      temperature: 0.2
+
+defaultTest:
+  vars:
+    # parâmetros opcionais do prompt: deixar o modelo usar o default de critérios
+    criterios: ""
+    sistema: Relay — barramento de eventos e borda de ingestão de todo o telemetry
+  options:
+    # JUIZ: google:gemini-2.5-flash — família Google, DIFERENTE da geração (OpenAI),
+    # anti self-preference. temperature 0 → veredito reprodutível. Julgar é raciocínio
+    # aberto, então o thinking do juiz fica ligado.
+    provider:
+      id: google:gemini-2.5-flash
+      config:
+        temperature: 0
+  assert:
+    - type: llm-rubric
+      rubricPrompt: file://rubrica-juiz.md
+      value: |
+        RUBRICA — Decisão de engenharia com trade-offs. Quatro critérios, escala 0/1/2
+        cada (0 = não atende, 1 = parcial, 2 = atende), total de 0 a 8.
+
+        C1. MÚLTIPLOS CAMINHOS DESENVOLVIDOS
+          - 2: desenvolve >= 3 caminhos distintos e avalia CADA um contra os critérios
+               antes de escolher (a exploração é real, não decorativa).
+          - 1: cita >= 3 opções mas só desenvolve uma ou duas.
+          - 0: pula direto para uma resposta única.
+
+        C2. RESTRIÇÕES INEGOCIÁVEIS RESPEITADAS
+          - 2: a recomendação respeita TODAS as restrições rígidas do cenário e mostra o
+               teste — preserva o SLA de alerting em tempo real do Sentinel (<= 60s) e
+               NÃO descarta/perde telemetry (perda é inaceitável num produto de
+               observabilidade); considera o orçamento já estourado.
+          - 1: respeita as restrições mas sem testá-las explicitamente caminho a caminho.
+          - 0: recomenda algo que VIOLA uma restrição rígida (perde mensagem, ou deixa o
+               alerting estourar o SLA para priorizar ingestão).
+
+        C3. TRADE-OFF HONESTO
+          - 2: nomeia o PREÇO de cada caminho; nenhuma opção aparece "sem desvantagem";
+               tudo ancorado nos números do cenário (180k/320k msgs/s, 4h retenção, etc.).
+          - 1: trade-offs vagos, ou algum caminho sem custo explícito.
+          - 0: inventa números/capacidades/SLAs que não estão no cenário.
+
+        C4. RECOMENDAÇÃO FUNDAMENTADA
+          - 2: escolhe um caminho OU combinação faseada, com o porquê DELA e o porquê das
+               DESCARTADAS, e fecha com confiança + riscos residuais + o que validar.
+          - 1: recomenda mas justifica só de um lado (por que sim, sem por que não), ou
+               sem riscos/validação.
+          - 0: recomenda sem justificar.
+
+        REGRA DE DECISÃO (o gate):
+          - APROVA (pass=true) somente se total >= 6 E NENHUM critério for 0.
+          - REPROVA (pass=false) se total < 6 OU qualquer critério for 0 (um critério
+            zerado derruba a análise mesmo com total alto — é o peso crítico; violar uma
+            restrição inegociável, C2=0, é o modo de falha mais grave desta decisão).
+      metric: qualidade-do-juiz
+
+# Uma entrada = o cenário do Relay do CP04 (estado + restrições + opções candidatas).
+tests:
+  - description: Sobrecarga do Relay — backpressure sob pico de cliente grande
+    vars:
+      estado_sistema: |
+        Relay (barramento de eventos):
+        - throughput sustentado: 180k msgs/s
+        - pico observado no incidente da semana passada: 320k msgs/s por 25min
+        - retenção atual: 4h
+        - consumidores: Forge (ingestão), Sentinel (alerting em tempo real)
+      restricoes: |
+        - alerting do Sentinel não pode atrasar mais que 60s (SLA com cliente) [RÍGIDO]
+        - ingestão do Forge pode atrasar até 15min sem violar SLA
+        - orçamento de infra do trimestre já está 8% acima do previsto
+        - perda de telemetry é inaceitável para um produto de observabilidade [RÍGIDO]
+          (o barramento antigo perdia mensagens sob pico — não repetir)
+      opcoes_candidatas: |
+        - priorizar o Sentinel (alerting em tempo real) na frente do Forge (que aguenta 15min)
+        - dead-letter queue: guardar o não processado para reprocessar depois
+        - particionar o Relay por cliente (isolar o cliente barulhento)
+        - autoescalar o número de consumidores quando a carga sobe
