@@ -152,34 +152,122 @@ As saídas reais de `promptfoo eval` dos itens já testados estão nos CP08 (det
 6/6 na nota, achados legítimos nos pods e na NetworkPolicy) e CP09 (juiz calibrado, Δ0
 contra a nota humana). O pipeline apenas **automatiza** essas mesmas execuções.
 
-### 3.2 Execução do pipeline em CI — pendente de validação (a fazer no GitHub)
+### 3.2 Execução do pipeline em CI — execução verificada (GitHub Actions)
 
-A evidência do build (verde + um vermelho provocado por regressão) exige rodar o workflow
-no GitHub Actions, o que depende de configurar os dois secrets e abrir um PR. **Não foi
-fabricada** aqui. Passo a passo para produzir a evidência:
+Rodado no GitHub Actions do repositório, no job `eval`, com os secrets `GOOGLE_API_KEY` e
+`OPENROUTER_API_KEY` configurados. **Uma única execução** (`~6m 35s`) percorreu os 6 configs
+na ordem do `find | sort`; **4 passaram e 2 reprovaram**, e o job terminou em `exit code 1`
+— o gate barrando o merge. Placar real dessa execução:
 
-1. **Configurar os secrets** `GOOGLE_API_KEY` e `OPENROUTER_API_KEY` no repositório.
-2. **Green:** commitar o workflow numa branch e abrir PR → a suíte roda e passa (ou reprova
-   `latency` em endpoint free-tier — ver §4; conteúdo e juízes passam). Anexar o print do
-   run verde e o `$GITHUB_STEP_SUMMARY`.
-3. **Regressão (vermelho provocado):** numa branch, quebrar **de propósito** um prompt e
-   abrir PR. Regressões cirúrgicas que cada assert pega:
-   - Em `sre/nota-triagem-padronizada/prompt.md`, remover o campo `ESCALAR PARA:` do formato
-     → o assert `regex ESCALAR PARA:.*@\w+` reprova → build vermelho.
-   - Em `seguranca/endurecer-networkpolicy/prompt.md`, mandar o modelo emitir `- {}` (allow-
-     all) → o assert `javascript` do allow-all reprova.
-   - Em `sre/analise-causa-raiz/prompt.md`, mandar "responda só com o STATUS, sem raciocinar"
-     → o juiz derruba C1 (para no sintoma) → nota < 6 → reprova.
-   Anexar o print do run vermelho apontando o assert que falhou.
+| # | Config | eval ID | Resultado | Tokens | Duração |
+|---|---|---|---|---|---|
+| 1 | `arquitetura/decisao-arquitetural-tradeoff` (juiz **novo**) | `eval-n6T` | ✓ 1 passed (100%) | 8.088 (2.697 eval + 5.391 grading) | 23s |
+| 2 | `data/migracao-incremental-encadeada` (juiz **novo**) | `eval-q58` | ✓ 1 passed (100%) | 7.934 (2.169 eval + 5.765 grading) | 24s |
+| 3 | `seguranca/endurecer-networkpolicy` | `eval-ujx` | ✗ **2 failed (100%)** | 5.743 | **3m 57s** |
+| 4 | `sre/analise-causa-raiz` (juiz) | `eval-WxV` | ✓ 1 passed (100%) | 12.277 (3.704 eval + 8.573 grading) | 26s |
+| 5 | `sre/nota-triagem-padronizada` | `eval-oCl` | ✓ passou (sem linha `FAIL`) | — | 4s |
+| 6 | `sre/triagem-pods-kubernetes` | `eval-nqA` | ✗ **1 failed (5/6, 83,33%)** | 11.660 | 5s |
 
-**Verificação local equivalente** (sem GitHub, com as chaves exportadas — o mesmo laço do
-CI): `cd "playbook de IA operacional" && find . -name 'promptfooconfig.yaml' | sort | while
-read c; do promptfoo eval -c "$c" || echo "FAIL $c"; done`. Rodar antes e depois da
-regressão reproduz o pass→fail que o pipeline transforma em gate de merge.
+**Os dois juízes NOVOS do CP10 nasceram verdes no pipeline** (a cobertura que este checkpoint
+adicionou):
 
-> **Estado do item:** workflow + cobertura entregues e validados estaticamente; a evidência
-> do run de CI (verde + vermelho) fica **pendente de validação** até rodar no GitHub com os
-> secrets, conforme o método do playbook (execução real, nunca presumida).
+```
+✓ Eval complete (ID: eval-n6T-2026-07-03T00:47:20)
+Total Tokens: 8,088
+  Eval: 2,697 (2,010 prompt, 687 completion)
+  Grading: 5,391 (2,839 prompt, 611 completion)
+Results:
+  ✓ 1 passed (100%)      ← backpressure (decisao-arquitetural-tradeoff)
+...
+✓ Eval complete (ID: eval-q58-2026-07-03T00:47:44)
+Total Tokens: 7,934
+  Eval: 2,169 (1,524 prompt, 645 completion)
+  Grading: 5,765 (2,792 prompt, 575 completion)
+Results:
+  ✓ 1 passed (100%)      ← migração (Elo 2)
+```
+
+O veredito real dos juízes bate com a rubrica: o backpressure recomendou "a **combinação
+faseada** de priorizar o Sentinel e implementar uma **dead-letter queue** para garantir a
+entrega de mensagens sem violar as restrições rígidas" (C2 = respeitou o SLA de 60s e o
+zero-perda), e a migração produziu "Fase 1 — Troca de Ingestão" partindo do `forge-batch-
+ingest` do diagnóstico (C1/C4). O `analise-causa-raiz` (juiz do CP09) também passou no CI,
+cravando "a causa-raiz da degradação foi a saturação da heap da JVM" — 12.277 tokens, 26s.
+
+**As duas reprovações são exatamente os modos de falha que o CP08 já documentava** — e é
+importante que sejam, porque provam que o gate pega em CI o que o teste manual pegava:
+
+1. **`networkpolicy` — reprovou por `latency`, não por conteúdo.** A geração travou no
+   free-tier (o backoff do provedor), como os próprios logs de progresso mostram, estourando
+   os 5s do teto de latência nos dois provedores:
+
+   ```
+   [CI Progress] Evaluation running for 2m 30s - Completed 1/2 tests (50%)
+   [CI Progress] Evaluation running for 3m 30s - Completed 1/2 tests (50%)
+   [Evaluation] ✓ Complete! 2/2 tests in 3m 56s
+   ...
+   Results:
+     0 passed (0%)
+     ✗ 2 failed (100%)
+   Duration: 3m 57s (concurrency: 4)
+   FAIL (100): ./seguranca/endurecer-networkpolicy/promptfooconfig.yaml
+   ```
+
+   É **a Decisão D em ato**: num runner + free-tier, a latência é weather do provedor, não
+   regressão de prompt (o conteúdo da policy sai correto, como no CP08). Por isso a régua de
+   regressão real se apoia em conteúdo + juízes, e a latência pede um endpoint estável para
+   voltar a ser gate confiável.
+
+2. **`triagem-pods` — reprovou 1/6 porque o gpt-4o-mini inventou problema no snapshot
+   saudável.** No caso da Entrada 3 (tudo saudável), o Gemini deu `[PASS] Todos os pods estão
+   saudáveis`, mas o gpt-4o-mini marcou um pod estável como falho:
+
+   ```
+   │ [PASS] Veredito: Todos │ [FAIL] 1 pod           │
+   │ os pods estão          │ problemático, 3        │
+   │ saudáveis.             │ saudáveis.             │
+   │                        │ **`sentinel-worker-5b… │
+   │                        │ — `Running` 🔴         │
+   │                        │ - **Causa provável:**  │
+   │                        │ o pod teve um reinício │
+   │                        │ recente (1 vez em 3    │
+   ...
+   Results:
+     ✓ 5 passed (83.33%)
+     ✗ 1 failed (16.67%)
+   FAIL (100): ./sre/triagem-pods-kubernetes/promptfooconfig.yaml
+   ```
+
+   A dupla-trava do assert do caso saudável (exige sinal de saúde **e** ausência de marcador
+   de falha) pegou o gpt-4o-mini em CI — o mesmo achado do CP08, agora automatizado.
+
+**O gate fechando a suíte — o job vermelho:**
+
+```
+FAIL (100): ./sre/triagem-pods-kubernetes/promptfooconfig.yaml
+Regressão detectada: ao menos um prompt falhou a suíte. Barrando o merge.
+Error: Process completed with exit code 1.
+```
+
+Esta é a evidência central: **itens reprovaram → o laço acumulou `fail=1` (capturando o exit
+100 do `promptfoo`) → o step emitiu "Barrando o merge" → o job saiu com `exit code 1` → o
+check do PR ficou vermelho.** Nenhum merge entra por cima disso. E note o ponto de desenho:
+**o gate não distingue "prompt piorou" de "modelo fraco naquele item" ou "provedor lento" —
+qualquer assert vermelho barra o merge**, que é o comportamento correto para um gate (e a
+razão pela qual a Decisão D recomenda tirar a latência do caminho crítico com um endpoint
+estável, para o vermelho significar sempre "qualidade caiu").
+
+> **Estado do item:** workflow + cobertura entregues, validados estaticamente e **executados
+> em CI** — os dois juízes novos aprovados (mais o de causa-raiz), e o build barrando o merge
+> com `exit code 1` em uma suíte com item reprovado. Evidência real, copiada do log da
+> execução, não presumida.
+
+**Como reproduzir um vermelho cirúrgico** (para amarrar o vermelho a um assert específico, em
+vez do fail natural de `networkpolicy`/`triagem-pods`): quebrar de propósito um prompt num
+branch e abrir PR — ex.: remover o campo `ESCALAR PARA:` de `sre/nota-triagem-padronizada/prompt.md`
+(o `regex ESCALAR PARA:.*@\w+` reprova), ou mandar `sre/analise-causa-raiz/prompt.md`
+"responder só o STATUS sem raciocinar" (o juiz derruba C1, nota < 6). O mecanismo de gate é
+o mesmo já comprovado acima.
 
 ---
 
@@ -287,10 +375,15 @@ outro provedor fez em 13s; foi weather do provedor, não regressão de prompt).
 
 Com os dois gates de juiz novos, **todos os 6 itens** têm avaliação: determinística onde a
 saída é estruturada, por julgamento onde é aberta. O pipeline transforma o `promptfoo eval`
-manual dos CP08/CP09 em **gate automático de merge** — mudou um prompt, a suíte roda, e a
-regressão (de forma ou de qualidade) barra o PR antes de virar problema de plantão. É a
-biblioteca deixando de ser texto versionado e virando **código de produção**: o playbook que
-o time pega e confia porque nada entra sem passar pelos testes. O que fica explicitamente em
-aberto, sem varrer para baixo do tapete: a evidência do run de CI (verde + vermelho), a
-provisionar com os secrets no GitHub (§3.2), e o endpoint estável que devolve à latência o
-status de gate confiável (Decisão D).
+manual dos CP08/CP09 em **gate automático de merge** — e isso já rodou em CI (§3.2): os dois
+juízes novos nasceram verdes e o build barrou o merge com `exit code 1` num item reprovado.
+É a biblioteca deixando de ser texto versionado e virando **código de produção**: o playbook
+que o time pega e confia porque nada entra sem passar pelos testes.
+
+Dois pontos honestos que a execução em CI deixou registrados, sem varrer para baixo do
+tapete: (1) o **endpoint estável** que devolve à latência o status de gate confiável
+(Decisão D) — enquanto o CI roda em free-tier, o `triagem-pods`/`networkpolicy` podem
+reprovar por weather do provedor, e é por isso que a régua de regressão real se apoia em
+conteúdo + juízes; (2) os runners do GitHub emitem um **aviso de depreciação do Node 20**
+(as actions `checkout`/`setup-node`/`cache` ainda o referenciam internamente) — é só aviso,
+não quebra o job, e se resolve na próxima subida de major dessas actions.
