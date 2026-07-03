@@ -1,0 +1,108 @@
+# promptfooconfig.yaml — GATE de qualidade (LLM-as-judge) da cadeia de migração
+# A cadeia tem 3 elos; o gate testa o ELO 2 (o plano faseado — prompt-2-plano.md), porque
+# é nele que moram os três atributos que a migração precisa garantir: faseamento sem
+# big-bang, reversibilidade por fase e coexistência para não quebrar os dependentes. O
+# Elo 2 é testado em ISOLAMENTO, recebendo um diagnóstico fixo (fixture do Elo 1) em
+# {{diagnostico}} — assim o gate não depende de rodar a cadeia inteira a cada alteração.
+# Saída ABERTA → juiz LLM aplicando a rubrica de 4 critérios (0–2, corte >= 6, nenhum
+# zerado). Mesma mecânica anti self-preference dos outros itens de saída aberta.
+#
+# Uso (na pasta do item, com as chaves exportadas):
+#   export OPENROUTER_API_KEY="..."   # geração do plano (gpt-4o-mini)
+#   export GOOGLE_API_KEY="..."       # JUIZ (Gemini) — outra família
+#   promptfoo eval -c promptfooconfig.yaml --no-cache
+description: Gate de qualidade do plano de migração (Elo 2) — juiz LLM aplicando a rubrica de 4 critérios
+
+# Testa o Elo 2 da cadeia — o plano faseado.
+prompts:
+  - file://prompt-2-plano.md
+
+# GERAÇÃO do plano: gpt-4o-mini via OpenRouter (família OpenAI). Planejar é raciocínio
+# aberto; temperature baixa reduz variância entre rodadas.
+providers:
+  - id: openrouter:openai/gpt-4o-mini
+    config:
+      temperature: 0.2
+
+defaultTest:
+  options:
+    # JUIZ: google:gemini-2.5-flash — família Google, DIFERENTE da geração (OpenAI),
+    # anti self-preference. temperature 0 → veredito reprodutível.
+    provider:
+      id: google:gemini-2.5-flash
+      config:
+        temperature: 0
+  assert:
+    - type: llm-rubric
+      rubricPrompt: file://rubrica-juiz.md
+      value: |
+        RUBRICA — Plano de migração faseado (Elo 2). Quatro critérios, escala 0/1/2 cada
+        (0 = não atende, 1 = parcial, 2 = atende), total de 0 a 8.
+
+        C1. FASEAMENTO INCREMENTAL (SEM BIG-BANG)
+          - 2: >= 3 fases coesas, ORDENADAS por dependência (a base primeiro), nenhuma
+               exigindo cortar tudo de uma vez.
+          - 1: fases existem mas a ordenação por dependência é frouxa, ou uma fase é
+               grande demais para ser reversível.
+          - 0: big-bang disfarçado (uma virada única) ou sem ordenação.
+
+        C2. REVERSIBILIDADE + GATE POR FASE
+          - 2: CADA fase diz como voltar atrás E o critério verificável que autoriza
+               avançar para a próxima.
+          - 1: parte das fases tem reversão/gate, parte não.
+          - 0: fases sem reversão nem critério de avanço.
+
+        C3. DEPENDENTES PRESERVADOS DURANTE A TRANSIÇÃO
+          - 2: cada fase diz como o antigo e o novo COEXISTEM (escrita dupla, shadow,
+               feature flag) para os dependentes — Sentinel (lê as tabelas), Cerebro
+               (indexa), billing da madrugada — não quebrarem.
+          - 1: menciona coexistência de forma genérica, sem amarrar aos dependentes.
+          - 0: ignora a coexistência; os dependentes quebrariam na transição.
+
+        C4. ANCORAGEM NO DIAGNÓSTICO
+          - 2: usa os componentes e pontos de corte reais do diagnóstico (as 14 etapas
+               Spark, o cron de 60min, as tabelas particionadas por hora, o ponto frágil
+               do lote que acumula o dobro) sem inventar peças novas.
+          - 1: ancora em parte, com alguma peça genérica.
+          - 0: inventa componentes/arquitetura fora do diagnóstico.
+
+        REGRA DE DECISÃO (o gate):
+          - APROVA (pass=true) somente se total >= 6 E NENHUM critério for 0.
+          - REPROVA (pass=false) se total < 6 OU qualquer critério for 0 (um critério
+            zerado derruba o plano mesmo com total alto — é o peso crítico; um plano
+            big-bang, C1=0, ou que quebra os dependentes, C3=0, falha o objetivo central
+            da migração).
+      metric: qualidade-do-juiz
+
+# Uma entrada = o diagnóstico do Elo 1 (fixture) + as restrições + o alvo do CP05 (Forge).
+# O gate roda o Elo 2 contra ela, gera o plano faseado e o submete ao juiz.
+tests:
+  - description: Migração do Forge — lote (cron 60min) → orientado a eventos, sem big-bang
+    vars:
+      alvo: >
+        consumir do Relay continuamente, processando em pequenos blocos quase em tempo
+        real, no lugar do lote horário
+      restricoes_migracao: |
+        - consumir do Relay continuamente, processando em pequenos blocos no lugar do lote de 1h
+        - manter quem depende do Forge funcionando durante a transição
+        - nada de virada única (big-bang): a migração vai em passos e pode voltar atrás
+      diagnostico: |
+        # Mapa do estado atual do Forge (saída do Elo 1)
+
+        Fluxo atual (lote):
+        - Ingestão: job em cron "forge-batch-ingest" acorda a cada 60min e lê tudo que acumulou.
+        - Transformação: 14 etapas encadeadas em Spark, ~40min no total.
+        - Destino: grava em tabelas no data warehouse, particionadas por hora.
+
+        Dependentes (contratos a preservar):
+        - Sentinel: lê as tabelas agregadas (dashboards e alerting).
+        - Cerebro: indexa os eventos transformados.
+        - Billing da Pepper: relatórios rodam de madrugada sobre as tabelas do dia.
+
+        Pontos frágeis:
+        - Se um lote falha, o próximo acumula o dobro de volume (efeito bola de neve).
+        - Acoplamento à janela horária: tudo assume partição por hora.
+
+        Candidatos a ponto de corte (onde cravar a fronteira antigo/novo):
+        - A borda de ingestão (trocar o cron por consumo contínuo do Relay) é o corte mais
+          fundamental; as 14 etapas e o contrato de tabela podem ser mantidos a princípio.

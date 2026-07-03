@@ -1,0 +1,109 @@
+# Playbook de IA Operacional — suíte de avaliação de prompts (promptfoo) como gate de CI.
+#
+# O que faz: a cada pull request e a cada push na principal que toque o playbook, roda a
+# suíte promptfoo inteira (determinística onde dá, LLM-as-judge onde precisa de julgamento)
+# e BARRA a mudança se qualquer config falhar. É a rede que impede uma regressão de prompt
+# entrar sem ser vista.
+#
+# Por que CLI e não a action oficial (promptfoo/promptfoo-action): a action recebe UM config
+# e uma só chave (openai-api-key); este repo tem 6 configs em pastas diferentes e dois
+# provedores (Google + OpenRouter). O laço de CLI cobre os 6 de uma vez e injeta as duas
+# chaves. A action fica como opção para um comentário rico de before/after num item único
+# (ver a justificativa no checkpoint-10).
+#
+# Controle de custo: o cache do promptfoo (actions/cache) faz com que só os prompts que
+# MUDARAM chamem o modelo — prompt intocado é servido do cache (perto de zero token). Assim
+# rodar a suíte inteira a cada PR continua barato, e a latência/custo só são medidos de
+# verdade onde houve mudança (que é exatamente onde uma regressão pode entrar).
+
+name: promptfoo — playbook eval
+
+on:
+  pull_request:
+    paths:
+      - "playbook de IA operacional/**"
+      - ".github/workflows/promptfoo.yml"
+  push:
+    branches: [main]
+    paths:
+      - "playbook de IA operacional/**"
+      - ".github/workflows/promptfoo.yml"
+
+# Menor privilégio: só ler o código e comentar no PR.
+permissions:
+  contents: read
+  pull-requests: write
+
+# Um PR que recebe vários pushes seguidos só roda a suíte da última revisão — economiza token.
+concurrency:
+  group: promptfoo-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    env:
+      PLAYBOOK_DIR: "playbook de IA operacional"
+      # Chaves dos provedores vêm dos SECRETS do repositório (Settings > Secrets and
+      # variables > Actions), nunca do YAML. Sem elas, os itens de juiz e as chamadas reais
+      # falham — que é o comportamento correto (o gate não deve passar sem poder medir).
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      PROMPTFOO_CACHE_PATH: ${{ github.workspace }}/.promptfoo-cache
+      # Não publicar resultados no serviço de share do promptfoo (dado de incidente é interno).
+      PROMPTFOO_DISABLE_SHARING: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # Cache dos resultados do promptfoo: chaveado pelo conteúdo dos prompts + configs.
+      # Mudou um prompt/config -> a chave muda -> aquele item recalcula (chama o modelo);
+      # o resto vem do cache. É o principal freio de custo por PR.
+      - name: Cache promptfoo
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.promptfoo-cache
+          key: promptfoo-${{ runner.os }}-${{ hashFiles('playbook de IA operacional/**/prompt*.md', 'playbook de IA operacional/**/promptfooconfig.yaml') }}
+          restore-keys: |
+            promptfoo-${{ runner.os }}-
+
+      # Versão FIXA (a validada localmente) para o gate ser reprodutível — atualizar de
+      # propósito, não deixar flutuar com o "latest".
+      - name: Install promptfoo
+        run: npm install -g promptfoo@0.121.17
+
+      - name: Run suite (gate)
+        run: |
+          set -uo pipefail
+          cd "$PLAYBOOK_DIR"
+
+          echo "## Resultado promptfoo" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Config | Resultado |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+
+          fail=0
+          # Só os promptfooconfig.yaml da suíte — o find NÃO pega o promptfooconfig.calibracao.yaml
+          # (banco de calibração do juiz, que não é gate).
+          while IFS= read -r cfg; do
+            echo "::group::eval $cfg"
+            if promptfoo eval -c "$cfg" --no-progress-bar \
+                 --output "$(dirname "$cfg")/.last-eval.json"; then
+              echo "| \`$cfg\` | ✅ pass |" >> "$GITHUB_STEP_SUMMARY"
+            else
+              code=$?
+              echo "FAIL ($code): $cfg"
+              echo "| \`$cfg\` | ❌ fail |" >> "$GITHUB_STEP_SUMMARY"
+              fail=1
+            fi
+            echo "::endgroup::"
+          done < <(find . -name 'promptfooconfig.yaml' | sort)
+
+          if [ "$fail" -ne 0 ]; then
+            echo "Regressão detectada: ao menos um prompt falhou a suíte. Barrando o merge." >&2
+            exit 1
+          fi
+          echo "Suíte inteira passou."

@@ -116,6 +116,19 @@ Toda inclusão ou alteração de item revisa, na mesma entrega:
   método citam o **conceito** (ex.: "o RISE é indicado para tarefas procedurais com input
   concreto") ou o `id` da referência interna — nunca a origem didática.
 
+## Testes e CI
+
+- **Todo item tem `promptfooconfig.yaml` na sua pasta** — o teste viaja junto com o prompt.
+  Saída estruturada → asserts determinísticos (regex/contains/javascript + `latency`/`cost`);
+  saída aberta → `llm-rubric` (rubrica de 4 critérios 0–2, corte ≥ 6, nenhum zerado, gerado
+  e julgado em famílias distintas). O `rubrica-juiz.md` acompanha o config do juiz.
+- **Não versionar** artefatos de execução (`*.json` de `--output`, `.last-eval.json`) — são
+  saída de run, não fonte; ficam no `.gitignore`.
+- O pipeline é `.github/workflows/promptfoo.yml`, **na raiz do repositório git** (o playbook
+  é subpasta). Roda a suíte inteira a cada PR/push que toque o playbook e barra a regressão
+  pelo exit code do `promptfoo eval`. Chaves em repo secrets, nunca no YAML. Ao adicionar um
+  item, o `find . -name 'promptfooconfig.yaml'` já o inclui — sem editar o workflow.
+
 ## Git
 
 - Commit semântico, mensagem de uma linha.

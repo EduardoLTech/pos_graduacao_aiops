@@ -1,6 +1,8 @@
 # Saídas transitórias de execução do promptfoo (--output) — não versionar
 resultado-*.json
+.last-eval.json
 
 # Cache e artefatos locais do promptfoo
 .promptfoo/
+.promptfoo-cache/
 promptfoo-errors.log
