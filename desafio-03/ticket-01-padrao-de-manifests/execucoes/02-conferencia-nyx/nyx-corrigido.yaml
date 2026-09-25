@@ -1,0 +1,150 @@
+# nyx-api (kube-news) em nyx-prod, no Padrão de Manifests da Metacortex.
+# Pendências que dependem de gente estão em conferencia.md. Duas bloqueiam o deploy:
+#   - a tag/digest da imagem (abaixo, PENDENTE-TAG-LOOM não existe no registry de propósito);
+#   - o Secret nyx-db, que se cria fora do Git (comando em conferencia.md).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nyx-api
+  namespace: nyx-prod
+  labels:
+    app.kubernetes.io/name: nyx-api
+    app.kubernetes.io/instance: nyx-prod
+    app.kubernetes.io/part-of: nyx
+    app.kubernetes.io/managed-by: platform
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nyx-api
+  namespace: nyx-prod
+  labels:
+    app.kubernetes.io/name: nyx-api
+    app.kubernetes.io/instance: nyx-prod
+    app.kubernetes.io/part-of: nyx
+    app.kubernetes.io/managed-by: platform
+data:
+  # Nomes lidos em src/models/post.js:8-13. DATABASE_URL não é lida pela aplicação.
+  DB_HOST: pg.nyx-prod.svc
+  DB_PORT: "5432"
+  DB_DATABASE: nyx
+  DB_SSL_REQUIRE: "false"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nyx-api
+  namespace: nyx-prod
+  labels:
+    app.kubernetes.io/name: nyx-api
+    app.kubernetes.io/instance: nyx-prod
+    app.kubernetes.io/part-of: nyx
+    app.kubernetes.io/managed-by: platform
+  # metacortex.io/owner fica de fora até o time dono ser informado (regra 1.5, pendência).
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nyx-api
+      app.kubernetes.io/instance: nyx-prod
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nyx-api
+        app.kubernetes.io/instance: nyx-prod
+        app.kubernetes.io/part-of: nyx
+        app.kubernetes.io/managed-by: platform
+    spec:
+      serviceAccountName: nyx-api
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: api
+          image: registry.metacortex.io/nyx/api:PENDENTE-TAG-LOOM
+          ports:
+            - name: http
+              containerPort: 8080          # src/server.js:81
+          envFrom:
+            - configMapRef:
+                name: nyx-api
+          env:
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef: {name: nyx-db, key: DB_USERNAME}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: nyx-db, key: DB_PASSWORD}
+          readinessProbe:                  # src/system-life.js:11 (não consulta o banco; ver pendência)
+            httpGet: {path: /ready, port: http}
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:                   # src/system-life.js:22 (não consulta o banco)
+            httpGet: {path: /health, port: http}
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            timeoutSeconds: 3
+          resources:                       # iniciais, sem medição de consumo
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nyx-api
+  namespace: nyx-prod
+  labels:
+    app.kubernetes.io/name: nyx-api
+    app.kubernetes.io/instance: nyx-prod
+    app.kubernetes.io/part-of: nyx
+    app.kubernetes.io/managed-by: platform
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: nyx-api
+    app.kubernetes.io/instance: nyx-prod
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: nyx-api
+  namespace: nyx-prod
+  labels:
+    app.kubernetes.io/name: nyx-api
+    app.kubernetes.io/instance: nyx-prod
+    app.kubernetes.io/part-of: nyx
+    app.kubernetes.io/managed-by: platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nyx-api
+      app.kubernetes.io/instance: nyx-prod

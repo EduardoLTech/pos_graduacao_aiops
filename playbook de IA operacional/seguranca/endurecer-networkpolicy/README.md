@@ -58,6 +58,55 @@ Geração: `{{manifesto}}`, `{{regras_padrao}}`, `{{mapa_servicos}}`, `{{namespa
    changelog.
 4. Repita 2–3 com a v2 até o veredito ser `APROVADO`.
 
+### Exemplo de uso (Elo de Geração)
+
+Trecho da seção `# Entrada` do `prompt.md` já preenchida (namespace do Sentinel):
+
+```text
+Namespace alvo: sentinel-prod
+Provedor/CNI: Cilium
+
+<manifesto_permissivo>
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: sentinel, namespace: sentinel-prod }
+spec:
+  podSelector: {}          # pega TODOS os pods do namespace
+  ingress: [ {} ]          # allow-all de entrada
+  egress:  [ {} ]          # allow-all de saída
+</manifesto_permissivo>
+
+<regras_padrao>
+- default-deny explícito em ingress e egress
+- só o api pode receber ingress do gateway (porta 8080)
+- egress apenas para o Relay (5000) e DNS interno (53)
+</regras_padrao>
+
+<mapa_servicos>
+sentinel-api: ns=sentinel-prod  label app=sentinel-api   porta 8080
+gateway:      ns=edge           label app=gateway
+relay:        ns=relay-prod     label app=relay          porta 5000
+</mapa_servicos>
+```
+
+A saída principal é o **manifesto endurecido** — cada regra comentada com o fluxo que libera:
+
+```yaml
+spec:
+  podSelector: { matchLabels: { app: sentinel-api } }
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: edge } },
+              podSelector: { matchLabels: { app: gateway } } }]
+      ports: [{ port: 8080 }]        # ingress: gateway → API do Sentinel
+  egress:
+    - to: [{ podSelector: { matchLabels: { app: relay } } }]
+      ports: [{ port: 5000 }]        # egress: API → ingestão no Relay
+    # (regra de DNS porta 53 incluída porque egress default-deny quebra resolução)
+```
+
+Essa **v1** vai colada em `{{manifesto_candidato}}` do prompt de verificação, numa conversa nova.
+
 ## Modelo
 
 Criado com `claude-opus-4-8`; executar com `claude-sonnet-4-6`. A verificação isolada

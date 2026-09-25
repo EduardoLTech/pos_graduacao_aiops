@@ -41,6 +41,39 @@ erro de decomposição).
    `{{fase_alvo}}` e, se quiser aterrar em comandos, informe `{{contexto_execucao}}`.
    Repita o Elo 3 trocando a fase até detalhar todas.
 
+### Exemplo de uso (Elo 1 — Diagnóstico)
+
+Trecho da seção `# Entrada` do `prompt-1` já preenchida (Forge: lote → eventos):
+
+```text
+Sistema: Forge — pipeline de agregação de telemetry
+
+<estado_atual>
+job batch a cada 15min lê o buffer do Relay, agrega e grava no store do Sentinel
+1 job monolítico; se falha, o batch seguinte acumula o atraso (efeito dominó)
+</estado_atual>
+
+<dependentes>
+Sentinel: lê os agregados; espera atualização a cada 15min (dashboards)
+Cerebro: reindexa a partir do mesmo store, 1x/noite
+</dependentes>
+
+<restricoes_migracao>
+[RÍGIDA] nenhuma janela de indisponibilidade dos dashboards do Sentinel
+[RÍGIDA] sem big-bang — cada fase reversível
+</restricoes_migracao>
+```
+
+O Elo 1 devolve o **mapa do estado atual** (fluxo, contratos, pontos frágeis,
+candidatos a ponto de corte) — que você valida no **gate** e cola em `{{diagnostico}}`
+do Elo 2. Trecho esperado do mapa:
+
+```text
+Candidato a ponto de corte: o buffer do Relay já é a fronteira natural — dá para
+plugar um consumer de eventos em paralelo ao job batch sem tocar no store do Sentinel.
+Crítico preservar: cadência de 15min esperada pelos dashboards (contrato do Sentinel).
+```
+
 ## Parâmetros por elo
 
 Ver o front-matter de cada `prompt-N-*.md`. Regra geral: o parâmetro que carrega a saída

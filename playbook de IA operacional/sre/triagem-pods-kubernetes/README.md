@@ -27,6 +27,42 @@ Plantonistas / SRE (time do Sam Wilson) operando o cluster onde o Sentinel roda.
 3. (Opcional) Preencha `{{namespace}}` e `{{contexto_extra}}`.
 4. Execute em chat/playground/API. **Sem agente e sem tools** — o dado vai colado.
 
+### Exemplo de uso
+
+Trecho da seção `# Entrada` já preenchida com um snapshot real:
+
+```text
+Namespace: sentinel-prod
+Contexto adicional: alertas de reinício começaram após o pico das 14h
+
+<snapshot>
+$ kubectl get pods -n sentinel-prod
+NAME                    READY   STATUS             RESTARTS       AGE
+sentinel-api-7d4-abc12  0/1     CrashLoopBackOff   6 (30s ago)    22m
+sentinel-worker-9f-xy   1/1     Running            1 (3d ago)     3d
+
+$ kubectl describe pod sentinel-api-7d4-abc12 -n sentinel-prod
+    State:   Waiting   Reason: CrashLoopBackOff
+    Last State: Terminated  Reason: OOMKilled  Exit Code: 137
+    Limits:  memory: 256Mi
+  Events:  BackOff  Back-off restarting failed container
+
+$ kubectl logs sentinel-api-7d4-abc12 -n sentinel-prod --previous
+  FATAL: out of memory — heap 250Mi/256Mi during startup warmup
+</snapshot>
+```
+
+O bloco que a saída deve produzir para esse pod (formato esperado):
+
+```text
+> `sentinel-api-7d4-abc12` — `CrashLoopBackOff` 🔴
+> - Causa provável: limite de memória (256Mi) insuficiente no warmup de inicialização.
+> - Sinal: Reason: OOMKilled / Exit Code: 137 + log `out of memory — heap 250Mi/256Mi`.
+> - Próxima ação: subir `limits.memory` (ex. 512Mi) e revalidar.
+```
+
+Note que `sentinel-worker` (RESTARTS `1 (3d ago)`, estável) **não** deve virar problema.
+
 ## Parâmetros de entrada
 
 | Parâmetro | Obrigatório | Descrição |

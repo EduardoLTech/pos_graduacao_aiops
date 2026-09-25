@@ -1,0 +1,143 @@
+# Modelo de workload HTTP stateless no padrão da Metacortex.
+# Troque <cliente>, <ambiente>, <componente>, <container>, <imagem>, <porta>,
+# <owner> e as rotas das probes pelo que o projeto responde. Não deixe placeholder:
+# sem resposta, pergunte.
+# Blocos marcados [prod] podem sair em dev/stg (replicas 1, sem strategy, sem PDB).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: <componente>
+  namespace: <cliente>-<ambiente>
+  labels:
+    app.kubernetes.io/name: <componente>
+    app.kubernetes.io/instance: <cliente>-<ambiente>
+    app.kubernetes.io/part-of: <cliente>
+    app.kubernetes.io/managed-by: platform
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: <componente>
+  namespace: <cliente>-<ambiente>
+  labels:
+    app.kubernetes.io/name: <componente>
+    app.kubernetes.io/instance: <cliente>-<ambiente>
+    app.kubernetes.io/part-of: <cliente>
+    app.kubernetes.io/managed-by: platform
+data: {}   # só o que não é sensível, com o nome de variável que o código lê
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: <componente>
+  namespace: <cliente>-<ambiente>
+  labels:
+    app.kubernetes.io/name: <componente>
+    app.kubernetes.io/instance: <cliente>-<ambiente>
+    app.kubernetes.io/part-of: <cliente>
+    app.kubernetes.io/managed-by: platform
+  annotations:
+    metacortex.io/owner: <owner>
+spec:
+  replicas: 2                      # [prod] >= 2
+  strategy:                        # [prod]
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: <componente>
+      app.kubernetes.io/instance: <cliente>-<ambiente>
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: <componente>
+        app.kubernetes.io/instance: <cliente>-<ambiente>
+        app.kubernetes.io/part-of: <cliente>
+        app.kubernetes.io/managed-by: platform
+    spec:
+      serviceAccountName: <componente>
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: <container>          # api, web, worker: nunca app/main/container
+          image: registry.metacortex.io/<cliente>/<imagem>:<tag>@sha256:<digest>
+          ports:
+            - name: http
+              containerPort: <porta>
+          envFrom:
+            - configMapRef:
+                name: <componente>
+          env:
+            - name: <VAR_SENSIVEL>
+              valueFrom:
+                secretKeyRef: {name: <cliente>-<segredo>, key: <chave>}
+          readinessProbe:            # rota que depende do que o tráfego precisa
+            httpGet: {path: <rota-ready>, port: http}
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:             # rota que NÃO consulta o banco
+            httpGet: {path: <rota-live>, port: http}
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            timeoutSeconds: 3
+          resources:                 # iniciais sem medição; limit de memória = 1,5x a 2x o observado
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:              # um emptyDir por caminho em que a aplicação escreve
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: <componente>
+  namespace: <cliente>-<ambiente>
+  labels:
+    app.kubernetes.io/name: <componente>
+    app.kubernetes.io/instance: <cliente>-<ambiente>
+    app.kubernetes.io/part-of: <cliente>
+    app.kubernetes.io/managed-by: platform
+spec:
+  type: ClusterIP
+  selector:                          # cópia exata do matchLabels
+    app.kubernetes.io/name: <componente>
+    app.kubernetes.io/instance: <cliente>-<ambiente>
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: policy/v1                # [prod] com mais de uma réplica
+kind: PodDisruptionBudget
+metadata:
+  name: <componente>
+  namespace: <cliente>-<ambiente>
+  labels:
+    app.kubernetes.io/name: <componente>
+    app.kubernetes.io/instance: <cliente>-<ambiente>
+    app.kubernetes.io/part-of: <cliente>
+    app.kubernetes.io/managed-by: platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: <componente>
+      app.kubernetes.io/instance: <cliente>-<ambiente>

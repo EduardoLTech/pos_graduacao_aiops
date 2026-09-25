@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: orion-web
+  namespace: orion-stg
+  labels: {app.kubernetes.io/name: orion-web, app.kubernetes.io/instance: orion-stg, app.kubernetes.io/part-of: orion, app.kubernetes.io/managed-by: platform}
+data: {DB_NAME: ecommerce}

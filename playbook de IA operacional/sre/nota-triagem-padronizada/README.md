@@ -26,6 +26,28 @@ Plantonistas / SRE (time do Sam Wilson) que abrem a nota assim que o Sentinel di
 3. (Opcional) Preencha `{{contexto_extra}}` com deploys conhecidos, SLA ou janela.
 4. Execute em chat/playground/API. **Sem agente e sem tools** — o dado vai colado.
 
+### Exemplo de uso
+
+Entrada — o alerta cru colado em `{{alerta}}`:
+
+```text
+Contexto adicional: deploy do Relay às 02:55
+
+<alerta>
+[02:58] Relay ingest.reject_rate = 6% (limiar 2%) por 8min — tenant: todos
+</alerta>
+```
+
+Saída — a nota nos cinco campos fixos (o que o modelo deve devolver, **só a nota**):
+
+```text
+ALERTA: Relay - taxa de rejeição de ingestão em 6% (limiar 2%) por 8min
+IMPACTO: ingestão de telemetry degradada para todos os tenants desde 02:58
+HIPÓTESE INICIAL: deploy do Relay às 02:55 saturou o buffer de ingestão
+AÇÃO IMEDIATA: rollback do deploy 02:55 via Argo CD
+ESCALAR PARA: @relay-core se a rejeição não cair em 10min
+```
+
 ## Parâmetros de entrada
 
 | Parâmetro | Obrigatório | Descrição |

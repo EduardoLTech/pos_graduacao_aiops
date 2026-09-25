@@ -1,0 +1,68 @@
+# Migracao do schema (Alembic via Flask-Migrate), uma vez por release.
+# O nome carrega a versao da imagem: Job e imutavel, release nova = Job novo.
+# O Deployment nao depende da ordem de apply: a readinessProbe em /shop so
+# passa depois que a tabela de produtos existe.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: orion-web-migracao-v1
+  namespace: orion-prod
+  labels:
+    app.kubernetes.io/name: orion-web-migracao
+    app.kubernetes.io/instance: orion-prod
+    app.kubernetes.io/part-of: orion
+    app.kubernetes.io/managed-by: platform
+  annotations:
+    metacortex.io/owner: sre
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: orion-web-migracao
+        app.kubernetes.io/instance: orion-prod
+        app.kubernetes.io/part-of: orion
+        app.kubernetes.io/managed-by: platform
+    spec:
+      restartPolicy: Never
+      serviceAccountName: orion-web
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migracao
+          image: registry.metacortex.io/orion/fake-shop:v1@sha256:07db4334f5f2bb330f0f342a81ad203bb21b770b8d7a27c90edb2261fea34e2f
+          command: ["python", "-m", "flask", "db", "upgrade"]
+          envFrom:
+            - configMapRef:
+                name: orion-web
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: orion-db, key: password}
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            # index.py registra o GunicornPrometheusMetrics no import, e ele
+            # exige PROMETHEUS_MULTIPROC_DIR gravavel mesmo fora do gunicorn.
+            - {name: tmp, mountPath: /tmp}
+            - {name: metrics, mountPath: /tmp/metrics}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: metrics
+          emptyDir: {}

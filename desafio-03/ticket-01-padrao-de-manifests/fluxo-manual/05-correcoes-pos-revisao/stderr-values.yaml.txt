@@ -1,0 +1,1 @@
+ERRO: nenhum objeto de Kubernetes (apiVersion/kind) encontrado nos arquivos.

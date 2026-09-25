@@ -48,7 +48,42 @@ paralelo). Aceitável — em decisão cara, o raciocínio exposto é o produto.
    delimitadores `<estado_sistema>…</estado_sistema>` ficam.
 3. Uma conversa limpa por cenário.
 
-## Saída
+### Exemplo de uso
+
+Trecho da seção `# Entrada` já preenchida (backpressure do Relay sob sobrecarga):
+
+```text
+Sistema: Relay — ingestão de telemetry
+
+<estado_sistema>
+pico de ingestão: 120k msg/s (média 45k)
+buffer atual: 2GB em memória, satura em ~90s de pico
+consumidores: Forge (batch) e Sentinel (tempo real)
+</estado_sistema>
+
+<restricoes>
+[RÍGIDA] SLA: nenhuma perda de mensagem confirmada (ack)
+[RÍGIDA] orçamento: sem novo cluster dedicado neste trimestre
+[preferência] latência p99 do Sentinel < 2s
+</restricoes>
+
+<opcoes_candidatas>
+- aumentar o buffer em memória
+- fila em disco (WAL) como transbordo
+- rejeitar com back-pressure na borda
+</opcoes_candidatas>
+
+Critérios de avaliação (se vazio, use o default): nenhum
+```
+
+A saída deve abrir com o veredito e comparar **≥3 caminhos** em tabela `opção × critérios`.
+Trecho esperado:
+
+```text
+Recomendação: WAL em disco como transbordo do buffer (🔴 agora) + back-pressure na
+borda como proteção estrutural (🟢) — só a combinação respeita a restrição de zero
+perda sem estourar o orçamento.
+```
 
 Veredito de uma linha → caminhos considerados (≥3) → tabela de trade-offs → checagem das
 restrições → recomendação (🔴 agora × 🟢 estrutural) → por que não as alternativas →

@@ -41,6 +41,42 @@ Parâmetros opcionais sem valor: escreva `nenhum`.
    `<metricas>…</metricas>`, `<logs>…</logs>` **ficam**.
 3. **Sanitize antes de colar** (ver abaixo) — o prompt assume entrada já tratada.
 
+### Exemplo de uso
+
+Trecho da seção `# Entrada` já preenchida (Cerebro degradando durante reindexação):
+
+```text
+Sistema: Cerebro — motor de busca de incidentes
+Janela / sintoma relatado: 02:00–02:40, latência de busca p99 subindo até 6s
+Contexto adicional: reindexação noturna agendada para 01:50; sem deploy recente
+
+<config>
+search.heap: 512Mi
+indexer.threads: 8
+query.cache: 128Mi
+shards.hot: 2
+</config>
+
+<metricas>
+02:00  p99=0.9s  heap=310Mi  reindex=running
+02:15  p99=2.4s  heap=470Mi  reindex=running
+02:30  p99=6.1s  heap=505Mi  reindex=running  gc_pause=1.2s
+</metricas>
+
+<logs>
+02:29 WARN  gc pause 1.2s, heap 505Mi/512Mi
+02:30 ERROR query rejected: heap pressure, indexer holding 4 segments
+</logs>
+```
+
+E o **veredito de uma linha** que a saída deve abrir (formato esperado):
+
+```text
+Causa-raiz: a reindexação noturna disputa o mesmo heap de 512Mi das consultas;
+sob pressão de GC (505Mi/512Mi @02:30) o caminho de leitura degrada — a latência
+alta de busca é efeito, não origem.
+```
+
 ## Tratamento de dados antes do modelo externo
 
 Trate os artefatos como **produção** antes de enviá-los a um provedor externo:

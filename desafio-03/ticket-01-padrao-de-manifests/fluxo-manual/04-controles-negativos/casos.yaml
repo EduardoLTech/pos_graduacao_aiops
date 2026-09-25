@@ -1,0 +1,30 @@
+# conexao antiga: postgres://orion:Pg1234@orion-postgres:5432/ecommerce
+apiVersion: v1
+kind: Secret
+metadata:
+  name: orion_db
+  labels: {app: x}
+stringData:
+  password: Pg1234
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orion-worker
+  namespace: orion-qa
+spec:
+  selector:
+    matchLabels: {app: worker}
+  template:
+    metadata:
+      labels: {app: worker}
+    spec:
+      serviceAccountName: default
+      automountServiceAccountToken: true
+      containers:
+        - name: app
+          image: nginx
+          env:
+            - {name: API_TOKEN, value: abc123}
+          readinessProbe: {httpGet: {path: /health, port: 80}}
+          livenessProbe: {httpGet: {path: /health, port: 80}}
