@@ -13,7 +13,7 @@ description: >-
   Não use para triagem de cluster em execução (pod que não sobe, service sem
   tráfego no cluster), para aplicar manifesto no cluster, nem para dúvida
   conceitual de Kubernetes.
-allowed-tools: Read, Grep, Glob, Write, Edit, Bash(python3 *conferir_manifests.py*), Bash(python *conferir_manifests.py*), Bash(python3 *inspecionar_imagem.py*), Bash(python *inspecionar_imagem.py*)
+allowed-tools: Read, Grep, Glob, Write, Edit, Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/conferir_manifests.py*), Bash(python ${CLAUDE_SKILL_DIR}/scripts/conferir_manifests.py*), Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/inspecionar_imagem.py*), Bash(python ${CLAUDE_SKILL_DIR}/scripts/inspecionar_imagem.py*)
 ---
 
 # Manifests da Metacortex
@@ -47,12 +47,15 @@ YAML inválido, arquivo fora de UTF-8) sai no stderr com código 2, e a mensagem
 que corrigir.
 
 Chame os scripts com `python3` (no Windows, `python`), pelo caminho absoluto da skill:
-`<dir-da-skill>/scripts/<script>.py`. Use a ferramenta Bash também no Windows: a
+`${CLAUDE_SKILL_DIR}/scripts/<script>.py`. Nas referências esse caminho aparece como
+`<dir-da-skill>`. Escreva-o exatamente como está aqui, sem aspas e com barras normais, logo
+depois de `python3`/`python`, sem opção entre os dois: a permissão casa o começo do
+comando, e qualquer outra forma é negada. Use a ferramenta Bash também no Windows: a
 permissão da skill cobre Bash, e a mesma chamada pela ferramenta PowerShell é negada.
 
 ## Preflight
 
-`python3 <dir-da-skill>/scripts/conferir_manifests.py --verificar-ambiente` confere
+`python3 ${CLAUDE_SKILL_DIR}/scripts/conferir_manifests.py --verificar-ambiente` confere
 Python, PyYAML e Trivy num comando só. Código 3 significa Trivy ausente: siga
 `references/instalar-trivy.md`. Sem Trivy o script roda, mas as regras 2.1, 3.1,
 3.2 e 3.6 saem `NAO_VERIFICADO` e o código de saída é 3: nunca reporte isso como
@@ -61,7 +64,7 @@ conforme.
 ## Modo conferir (o uso frequente)
 
 1. Rode o script sobre o arquivo ou diretório:
-   `python3 <dir-da-skill>/scripts/conferir_manifests.py <caminho>`
+   `python3 ${CLAUDE_SKILL_DIR}/scripts/conferir_manifests.py <caminho>`
    Códigos de saída: 0 sem barramento, 1 barra, 2 erro de uso/YAML, 3 incompleto.
 2. Localize o projeto da aplicação (repositório local ou clone que o usuário
    indicar) e responda cada item de "Conferência que exige ler o projeto" com

@@ -1,0 +1,1 @@
+Bash(python ${CLAUDE_SKILL_DIR}/scripts/conferir_manifests.py*)

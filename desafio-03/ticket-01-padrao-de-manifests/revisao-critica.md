@@ -122,10 +122,11 @@ Ficaram sem verificação, pelo revisor e por mim:
 Fechados depois, em 2026-09-25 (`fluxo-manual/07-verificacoes-pendentes/`):
 - `%TEMP%` em outro drive: funciona nos dois sentidos;
 - Linux: saída idêntica à do Windows nos 30 casos da regressão;
-- o frontmatter sozinho só concede as permissões quando o usuário invoca a skill.
+- o frontmatter sozinho só concede as permissões quando o usuário invoca a skill;
+- o matcher **casava**: `python -c "<código>" <script>.py` passava. O padrão foi ancorado
+  em `${CLAUDE_SKILL_DIR}/scripts/<script>.py`, e depois disso só o script passa.
 
-Seguem abertos: o matcher (teste bloqueado pelo classificador de segurança do agente),
-macOS e o SSRF via `realm`.
+Segue aberto: o SSRF via `realm`. macOS foi arquivado: não há máquina para testar.
 
 - **M5 Narrativa da origem.** A "escrita à mão" do fake-shop foi um único Write do agente,
   depois do script. O `/skill-creator` em "modo brainstorm" não teve turno humano. Parte

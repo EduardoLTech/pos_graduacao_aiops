@@ -292,9 +292,11 @@ longas têm sumário.
 
 ### Permissões que a skill pede
 
-`allowed-tools: Read, Grep, Glob, Write, Edit, Bash(python3 *conferir_manifests.py*),
-Bash(python *conferir_manifests.py*), Bash(python3 *inspecionar_imagem.py*),
-Bash(python *inspecionar_imagem.py*)`
+`allowed-tools: Read, Grep, Glob, Write, Edit,
+Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/conferir_manifests.py*),
+Bash(python ${CLAUDE_SKILL_DIR}/scripts/conferir_manifests.py*),
+Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/inspecionar_imagem.py*),
+Bash(python ${CLAUDE_SKILL_DIR}/scripts/inspecionar_imagem.py*)`
 
 - Leitura e busca livres: o trabalho é ler projeto e manifesto.
 - Escrita: o modo escrever grava YAML.
@@ -312,9 +314,16 @@ Bash(python *inspecionar_imagem.py*)`
   das settings. Em sessão interativa, o esperado é que o que falta vire pergunta ao
   usuário, mas isso não foi medido. A lista cobre Bash, não PowerShell, e o `SKILL.md`
   diz isso.
-- **Não verificado:** se o padrão `Bash(python *<script>.py*)` casa também
-  `python -c "<código>" <script>.py`. Se casar, o envelope é mais largo do que parece.
-  O teste foi bloqueado pelo classificador de segurança do agente.
+- **O caminho do script é ancorado no diretório da skill (medido em 2026-09-25).** O
+  padrão anterior, `Bash(python *conferir_manifests.py*)`, deixava passar
+  `python -c "<código>" conferir_manifests.py` e `python outro.py conferir_manifests.py`,
+  ou seja, qualquer código. Com `${CLAUDE_SKILL_DIR}`, que o Claude Code substitui também
+  no `allowed-tools`, só passa o script da skill. Encadeamento (`&&`) e substituição de
+  comando (`$(...)`) são negados nos dois padrões. Custo: o caminho precisa vir sem aspas,
+  logo depois de `python`, e por isso a skill não funciona instalada num caminho com espaço
+  (não medido). Em `claude -p` com disparo pelo modelo, a regra passada em `--allowedTools`
+  precisa do caminho absoluto, porque ali não há `${CLAUDE_SKILL_DIR}`.
+  Evidência: `fluxo-manual/07-verificacoes-pendentes/matcher/`.
 - **Não** pede `kubectl` nem `helm`. Instalar o Trivy é proposta ao usuário, não ação
   da skill. Nas execuções de teste, `kubectl` estava explicitamente negado
   (`--disallowedTools "Bash(kubectl *)"`).
