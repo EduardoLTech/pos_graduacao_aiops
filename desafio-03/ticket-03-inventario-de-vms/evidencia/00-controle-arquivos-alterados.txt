@@ -1,0 +1,5 @@
+/var/lib/landscape/landscape-sysinfo.cache
+/var/log/auth.log
+/var/log/journal/d17691837c5445dbabfa6100ea3b0a1f/system.journal
+/var/log/journal/d17691837c5445dbabfa6100ea3b0a1f/user-1001.journal
+/var/log/syslog

@@ -1,0 +1,3 @@
+saídas examinadas: 24 (01-conforme.err, 01-conforme.json, 01-conforme.md, 02-repeticao.err, 02-repeticao.json, 02-repeticao.md, 03-desvios.err, 03-desvios.json, 03-desvios.md, 04-nome-nao-resolve.err, 04-nome-nao-resolve.json, 04-nome-nao-resolve.md, 05-sem-resposta.err, 05-sem-resposta.json, 05-sem-resposta.md, 06-chave-recusada.err, 06-chave-recusada.json, 06-chave-recusada.md, 07-fingerprint-divergente.err, 07-fingerprint-divergente.json, 07-fingerprint-divergente.md, 08-ssh-fora-do-ar.err, 08-ssh-fora-do-ar.json, 08-ssh-fora-do-ar.md)
+padrões procurados: 18 (cada linha das chaves privadas de coleta e da recusada no caso 06, e o caminho de cada uma em quatro formas)
+ocorrências: 0
