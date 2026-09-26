@@ -1,0 +1,1 @@
+O kube-news do cliente nyx no nyx-stg responde 503 para quem chama de fora. A aplicação parece estar de pé. Descobre por quê e me diz a causa. Não pergunte nada.

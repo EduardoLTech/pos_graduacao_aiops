@@ -1,0 +1,11 @@
+id	frase	esperado	por que
+01	o pod do nyx-prod não sobe	triagem-cluster	sintoma em cluster, namespace dito
+02	por que esse deployment está 0/3	triagem-cluster	0/3 é estado de cluster, não de arquivo; "esse" sem alvo é ambíguo
+03	o service do nyx-stg não tem endpoint	triagem-cluster	endereço de Service só existe no cluster
+04	revisa esse deployment antes de eu subir	manifests-metacortex	"antes de subir": arquivo, modo conferir
+05	esse manifesto está no padrão da casa?	manifests-metacortex	padrão da casa = modo conferir
+06	cria um Deployment novo do zero pra mim	manifests-metacortex	modo escrever; falta dizer de qual projeto
+07	esse manifesto não sobe no cluster	ambíguo	pode ser arquivo inválido (conferir) ou workload quebrado (triagem); o pedido não diz se foi aplicado
+08	o Service do nyx não está entregando tráfego	triagem-cluster	sintoma de tráfego; "nyx" tem dois namespaces
+09	o que é um DaemonSet?	nenhuma	dúvida conceitual
+10	provisiona uma VM nova no Construct pro cliente orion	nenhuma	fora do escopo das duas skills (VM, Construct)

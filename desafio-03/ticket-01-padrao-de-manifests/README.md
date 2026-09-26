@@ -34,8 +34,9 @@ ticket-01-padrao-de-manifests/
   até o script sair limpo; rodar controles negativos no script. **Todo o fluxo foi rodado
   pelo agente**, com o humano definindo o objetivo, e não passo a passo à mão. A escrita
   do fake-shop foi feita de uma vez, depois de o script existir.
-- **Por qual caminho.** Meta, não manual (aula 06-04): a janela de contexto com o
-  fluxo executado foi destilada com o `/skill-creator`, como na aula 06-07. Foi o agente
+- **Por qual caminho.** Meta, não manual. A janela de contexto com o fluxo executado foi
+  destilada com o `/skill-creator`, para que a skill descreva o que de fato rodou e não
+  instrução que ninguém testou. Foi o agente
   que o invocou, pedindo "modo brainstorm", mas **não houve turno de brainstorm com o
   humano**: o SKILL.md saiu direto das decisões do fluxo. O script veio do próprio fluxo, e o corpo e as referências vieram das decisões
   tomadas nele.
@@ -53,6 +54,8 @@ transcrição (`transcricao.jsonl`) e a saída estão em cada pasta.
 | Escrever: fake-shop em `orion-prod` | sozinha, pelo pedido | 29 | 163 s | US$ 1,08 | código 0: 18 OK, nada barra nem pede justificativa |
 | Conferir: manifesto barrado do nyx | sozinha, pelo pedido | 22 | 151 s | US$ 0,83 | barrado: código 1 (11 barram, 2 justificar); corrigido: código 0 (só a 1.5 pede justificativa, falta o dono) |
 | Escrever: encontros-tech em `helio-stg` (generalização, skill corrigida, sem dono/imagem no prompt, só permissões da skill) | sozinha, pelo pedido | 43 | 200 s | US$ 1,25 | código 0: 14 OK, 1.5 justificar (dono não informado), 3 não se aplicam (regras de prod); 8 negações de permissão |
+| Escrever: fake-shop em `orion-stg` com banco (depois da correção do M1, mesmo envelope) | sozinha, pelo pedido | 33 | 180 s | US$ 1,28 | código 0: 14 OK, 1.5 justificar, 3 não se aplicam; **0 negações**, imagem de origem inspecionada |
+| Conferir: manifesto barrado do nyx com a skill atual (depois de M1–M4 e da revisão do delta, mesmo envelope) | sozinha, pelo pedido | 25 | 146 s | US$ 0,84 | barrado: código 1 (11 barram); corrigido: código 0 (17 OK, 1.5 justificar); **0 negações** |
 
 Os resultados foram reconferidos fora da sessão da skill, rodando o script de novo
 (`conferencia-independente.md`, `saida-script-barrado.md`, `saida-script-corrigido.md`).
@@ -116,8 +119,107 @@ fluxo manual. O prompt não trouxe dono nem imagem, e a sessão teve só as perm
 
 Custo do envelope restrito: **8 negações de permissão** (comando composto com `cd &&`,
 `curl` para a imagem de origem, `trivy config` avulso). A skill terminou mesmo assim,
-mas o `allowed-tools` e a referência precisam se alinhar (achado médio M1, não
-corrigido).
+mas o `allowed-tools` e a referência precisavam se alinhar (achado médio M1,
+corrigido depois; ver a execução 04).
+
+### Permissões alinhadas: `execucoes/04-escrita-fake-shop-stg/`
+
+Rodada em 2026-09-25, depois da correção do M1. O envelope foi o mesmo da execução 03,
+com o novo script de imagem, e o comando exato está em `comando.txt`. As 8 negações da 03
+caíam em quatro classes, e cada uma teve uma correção:
+
+| Negação na 03 | Correção |
+|---|---|
+| leitura por shell (`cd … && cat/ls/git`) | o SKILL.md manda ler com Read, Glob e Grep; o Bash só roda os scripts, um comando por chamada |
+| `curl` para a imagem de origem | `scripts/inspecionar_imagem.py`: GET anônimo no registry, sem Docker |
+| preflight encadeado, script com `; echo $?` | `conferir_manifests.py --verificar-ambiente`; o código de saída já sai na última linha |
+| `trivy config` avulso para ver o detalhe | o informativo do Trivy sai com a mensagem por arquivo (qual chave) |
+
+O resultado ficou assim:
+- **0 negações**, 33 turnos, 180 s, US$ 1,28. Disparo sozinho, pelo pedido.
+- **A imagem de origem foi inspecionada dentro da skill**, pela primeira vez: a sessão
+  listou as tags de `fabricioveronez/fake-shop`, leu `v1@sha256:07db4334…` (User `app`
+  uid 10001, `WorkingDir /app`, `Cmd ./entrypoint.sh`) e o `postgres:17`. Com isso ela
+  achou sozinha o que antes precisava do fluxo manual: `/tmp/metrics` criado no build
+  (montou um `emptyDir` separado), o `bash` como PID 1 sem `exec` no `entrypoint.sh` e o
+  `STOPSIGNAL SIGINT` do postgres, que o kubelet ignora (resolvido com `preStop`
+  `pg_ctl stop -m fast`).
+- Aplicação, Job de migração e PostgreSQL em `orion-stg`. É o par que o Ticket 04 pede.
+- O script, rodado de novo fora da sessão, deu código 0: 14 OK, 1.5 a justificar (dono
+  não informado), 3 não se aplicam (`conferencia-independente-saida.md`).
+- A KSV-01010 marcou `DB_PORT` de novo como sensível. O falso positivo continua, mas
+  agora o relatório diz qual chave o Trivy acusou.
+
+**Limites da prova.** O fake-shop passou pelo fluxo manual, então esta execução não
+mede generalização: esse papel é da 03. O envelope foi passado por `--allowedTools` na
+CLI (`comando.txt`): isso prova que a lista basta, não que o frontmatter `allowed-tools`
+sozinho conceda essas permissões. A imagem da aplicação saiu da tag mais recente
+na origem, que coincide com a da execução 01, e não de um pedido. O relatório registra
+isso como pendência. Nada foi aplicado em cluster.
+
+### Modo conferir com a skill atual: `execucoes/05-conferencia-nyx-skill-atual/`
+
+Rodada em 2026-09-25, depois das correções de M1 a M4 e da revisão focada do delta
+(`revisao-critica.md`). Desde a execução 02, quase tudo o que mudou passa pelo modo
+conferir:
+- a cópia em UTF-8 que o Trivy recebe;
+- a KSV-0125 como evidência;
+- a heurística de segredo e a checagem de PDB;
+- o SKILL.md com um comando por chamada.
+
+O prompt e o manifesto de entrada são os da 02. O envelope é o da 04 (`comando.txt`).
+
+O resultado ficou assim:
+- **0 negações**, 25 turnos, 146 s, US$ 0,84. Disparo sozinho, pelo pedido.
+- O script, rodado de novo fora da sessão (`*-saida-independente.md`), deu:
+  - barrado: código 1, com as mesmas 11 regras barradas da 02;
+  - corrigido: código 0, com 17 OK e a 1.5 a justificar (dono não informado).
+- Cada item de "Conferência que exige ler o projeto" foi respondido com `arquivo:linha` do
+  kube-news. Conferi por amostragem, e as três afirmações se sustentam:
+  - as variáveis `DB_*` em `src/models/post.js:8-13`;
+  - `app.listen(8080)` em `src/server.js:81`;
+  - nenhum `process.on` no código, então o SIGTERM não é tratado.
+- **Novo em relação à 02:** a sessão inspecionou a imagem de origem
+  (`fabricioveronez/kube-news:v1.0.0@sha256:f86b40ce…`, usuário `node`, `Cmd` sem shell)
+  e viu que a tag `v1`, a mais recente, **só tem arm64**. Por isso fixou a `v1.0.0`, que
+  é multi-arch. Conferi as duas tags com o `inspecionar_imagem.py`.
+- Achou de novo o que só o código revela: a aplicação não lê `DATABASE_URL`, e
+  `sync({ alter: true })` roda no boot sem `await`, o que com 2 réplicas vira `ALTER`
+  concorrente. Também achou rotas de caos (`/unhealth`, `/unreadyfor`) sem autenticação em
+  prod.
+
+**Limites da prova.** Os limites da 04 valem aqui: envelope por `--allowedTools`, e nada
+aplicado em cluster. O kube-news e o manifesto barrado já tinham passado pelo fluxo
+manual, então esta execução prova que o modo conferir continua funcionando depois das
+mudanças, não que ele generaliza.
+
+### Permissão só pelo frontmatter: `execucoes/06-conferencia-nyx-so-frontmatter/`
+
+Rodada em 2026-09-25 com o prompt da 05, mas sem `--allowedTools` para as ferramentas da
+skill: a linha de comando libera só a ferramenta `Skill`. A pergunta era se o
+`allowed-tools` do frontmatter basta sozinho.
+
+Não bastou: **7 negações** (22 turnos, 114 s, US$ 0,87). Foram negados o Bash do script,
+o Write da conferência e a leitura do kube-news, que fica fora do diretório. Testes
+curtos em seguida isolaram a causa (`fluxo-manual/07-verificacoes-pendentes/`):
+- o formato da lista (vírgula, espaço ou lista YAML) não muda nada;
+- invocada pelo usuário com `/manifests-metacortex`, a skill tem as ferramentas
+  concedidas (0 negações);
+- disparada pelo modelo numa sessão `-p`, não tem.
+
+A saída desta sessão não vale como conferência. Sem o script, o agente leu a
+conferência da 05 na pasta vizinha, e as duas gravações foram negadas. Ela vale só como
+medida de permissão.
+
+### Os manifests no cluster: `fluxo-manual/08-aplicacao-no-kind/`
+
+Os manifests da execução 04 subiram num kind sem nenhuma edição. A imagem foi trocada
+pela de origem, com o mesmo digest, via kustomize. O Job de migração completou na 3ª
+tentativa, dentro do `backoffLimit` pensado para o banco subir. A readiness em `/shop`
+segurou o tráfego até o schema existir. UID 10001 com raiz só leitura subiu sem erro de
+escrita. Com o banco fora do ar por 162 s, a aplicação saiu de pronta e não reiniciou.
+Ficou em aberto o banco que aceita conexão e não responde: com um worker síncrono no
+gunicorn, a liveness pode reiniciar o pod.
 
 ### O que as execuções mudaram na skill
 
@@ -151,7 +253,8 @@ Duas decisões de fronteira:
 - **1.4 (seletor) ficou no script**, mesmo sendo a regra "silenciosa". Cruzar Service e
   template é mecânico, e é exatamente o que olho humano não pega.
 - **A KSV-0125 do Trivy roda configurada, mas não responde pela 3.7.** Ela entra como
-  evidência. A KSV-01010 (segredo em ConfigMap) ficou só como informativo porque marcou
+  evidência quando o script já barrou a 3.7, e como informativo no resto. Nunca barra
+  sozinha: com a lista da casa vazia, ela acusaria até `registry.metacortex.io`. A KSV-01010 (segredo em ConfigMap) ficou só como informativo porque marcou
   `DB_PORT` como sensível.
 
 O script devolve **veredito por regra** (`BARRA`, `JUSTIFICAR`, `OK`, `NAO_VERIFICADO`,
@@ -179,7 +282,7 @@ longas têm sumário.
 
 - **Bloco 4 inteiro (vocabulário).** Não é regra, foi escrito para humano chegando na
   plataforma, e o modelo já sabe o que é Pod, Service e probe. Carregá-lo a cada disparo
-  seria custo sem ganho (dica 1 da aula 06-11). A única frase útil dele (ausência do
+  seria custo sem ganho: a skill só deve carregar o que o modelo ainda não sabe. A única frase útil dele (ausência do
   campo de endereços em Endpoints) é assunto de triagem de cluster, não de manifesto.
 - **Histórico da página.** Só o estado atual vale. A 3.4 entrou já como obrigatória.
 - **Regras sem dono verificável:** "tag imutável" além de `:latest` (tag `stable` é
@@ -190,14 +293,30 @@ longas têm sumário.
 ### Permissões que a skill pede
 
 `allowed-tools: Read, Grep, Glob, Write, Edit, Bash(python3 *conferir_manifests.py*),
-Bash(python *conferir_manifests.py*), Bash(trivy --version)`
+Bash(python *conferir_manifests.py*), Bash(python3 *inspecionar_imagem.py*),
+Bash(python *inspecionar_imagem.py*)`
 
 - Leitura e busca livres: o trabalho é ler projeto e manifesto.
 - Escrita: o modo escrever grava YAML.
-- Bash **só** para o script da skill e para checar a versão do Trivy. O script chama o
-  Trivy por dentro, então a skill não precisa de `Bash(trivy *)` genérico.
-- **Não** pede `kubectl`, `helm` nem rede. Instalar o Trivy é proposta ao usuário, não
-  ação da skill. Nas execuções de teste, `kubectl` estava explicitamente negado
+- Bash **só** para os dois scripts da skill, um comando por chamada. O `conferir` chama
+  o Trivy por dentro e faz o preflight (`--verificar-ambiente`), e a mensagem de cada
+  informativo já vem no relatório. Por isso a skill não precisa de `Bash(trivy *)`
+  genérico.
+- **Rede:** o `inspecionar_imagem.py` faz GET anônimo no registry para ler a
+  configuração da imagem de origem. O Trivy, chamado pelo `conferir`, baixa o bundle de
+  checagens no primeiro uso. Descartado: `Bash(curl *)`, que daria rede genérica à
+  skill.
+- **Quando o frontmatter vale (medido em 2026-09-25, Claude Code 2.1.283):** vale quando
+  o usuário invoca a skill (`/manifests-metacortex`). Quando o modelo a dispara numa
+  sessão `-p`, a lista não é aplicada, e a permissão precisa vir de `--allowedTools` ou
+  das settings. Em sessão interativa, o esperado é que o que falta vire pergunta ao
+  usuário, mas isso não foi medido. A lista cobre Bash, não PowerShell, e o `SKILL.md`
+  diz isso.
+- **Não verificado:** se o padrão `Bash(python *<script>.py*)` casa também
+  `python -c "<código>" <script>.py`. Se casar, o envelope é mais largo do que parece.
+  O teste foi bloqueado pelo classificador de segurança do agente.
+- **Não** pede `kubectl` nem `helm`. Instalar o Trivy é proposta ao usuário, não ação
+  da skill. Nas execuções de teste, `kubectl` estava explicitamente negado
   (`--disallowedTools "Bash(kubectl *)"`).
 - A invocação fica aberta ao modelo e ao usuário: conferir é o uso frequente e precisa
   disparar pelo pedido natural ("revisa esse deployment").

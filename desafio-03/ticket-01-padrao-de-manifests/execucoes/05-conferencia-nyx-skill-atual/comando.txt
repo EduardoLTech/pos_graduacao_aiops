@@ -1,0 +1,6 @@
+# rodado a partir de desafio-03/ (onde fica .claude/skills/)
+claude -p "$(cat ticket-01-padrao-de-manifests/execucoes/05-conferencia-nyx-skill-atual/prompt.txt)" \
+  --permission-mode acceptEdits \
+  --allowedTools "Read,Grep,Glob,Write,Edit,Skill,Bash(python3 *conferir_manifests.py*),Bash(python *conferir_manifests.py*),Bash(python3 *inspecionar_imagem.py*),Bash(python *inspecionar_imagem.py*)" \
+  --disallowedTools "Bash(kubectl *)" \
+  --output-format stream-json --verbose

@@ -1,6 +1,7 @@
 # Instalar o Trivy
 
-Confira primeiro: `trivy --version`. A skill foi validada com a 0.74.0.
+Confira primeiro: `python3 <dir-da-skill>/scripts/conferir_manifests.py --verificar-ambiente`
+(mostra a versão do Trivy, ou "ausente"). A skill foi validada com a 0.74.0.
 
 - macOS: `brew install trivy`
 - Debian/Ubuntu: repositório oficial (https://trivy.dev/latest/getting-started/installation/)

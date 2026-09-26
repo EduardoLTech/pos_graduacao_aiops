@@ -1,0 +1,5 @@
+skills: triagem-cluster
+turnos 10 · 30 s · US$ 0.27 · erro False
+negacoes: 0
+chamadas de escrita no cluster: 0
+caminho: Skill(triagem-cluster) → ToolSearch() → k8s:kubectl_get(deployments -n orion-stg) → k8s:kubectl_get(pods -n orion-stg) → k8s:kubectl_get(deployment -n orion-stg) → k8s:kubectl_get(replicasets -n orion-stg) → k8s:kubectl_describe(pod -n orion-stg) → k8s:kubectl_get(endpointslices -n orion-stg)

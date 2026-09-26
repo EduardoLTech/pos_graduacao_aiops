@@ -1,0 +1,286 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nyx-prod
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nyx-stg
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: orion-stg
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nyx-api
+  namespace: nyx-prod
+spec:
+  ports:
+  - port: 80
+    targetPort: 8080
+  selector:
+    app: nyx-api
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nyx-postgres
+  namespace: nyx-prod
+spec:
+  ports:
+  - port: 5432
+    targetPort: 5432
+  selector:
+    app: nyx-postgres
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nyx-api
+  namespace: nyx-stg
+spec:
+  ports:
+  - port: 80
+    targetPort: 8080
+  selector:
+    app: nyx-api
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nyx-postgres
+  namespace: nyx-stg
+spec:
+  ports:
+  - port: 5432
+    targetPort: 5432
+  selector:
+    app: nyx-postgres
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orion-postgres
+  namespace: orion-stg
+spec:
+  ports:
+  - port: 5432
+    targetPort: 5432
+  selector:
+    app: orion-postgres
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orion-web
+  namespace: orion-stg
+spec:
+  ports:
+  - port: 80
+    targetPort: 5000
+  selector:
+    app: orion-web
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nyx-api
+  namespace: nyx-prod
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nyx-api
+  template:
+    metadata:
+      labels:
+        app: nyx-api
+    spec:
+      containers:
+      - env:
+        - name: DB_HOST
+          value: nyx-postgres
+        - name: DB_DATABASE
+          value: kubedevnews
+        - name: DB_USERNAME
+          value: kubedevnews
+        - name: DB_PASSWORD
+          value: Pg#123
+        image: fabricioveronez/kube-news:v1.0.0
+        name: api
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 10
+        resources:
+          limits:
+            cpu: 200m
+            memory: 24Mi
+          requests:
+            cpu: 50m
+            memory: 16Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nyx-postgres
+  namespace: nyx-prod
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nyx-postgres
+  template:
+    metadata:
+      labels:
+        app: nyx-postgres
+    spec:
+      containers:
+      - env:
+        - name: POSTGRES_DB
+          value: kubedevnews
+        - name: POSTGRES_USER
+          value: kubedevnews
+        - name: POSTGRES_PASSWORD
+          value: Pg#123
+        image: postgres:16-alpine
+        name: postgres
+        ports:
+        - containerPort: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nyx-api
+  namespace: nyx-stg
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nyxapi
+  template:
+    metadata:
+      labels:
+        app: nyxapi
+    spec:
+      containers:
+      - env:
+        - name: DB_HOST
+          value: nyx-postgres
+        - name: DB_DATABASE
+          value: kubedevnews
+        - name: DB_USERNAME
+          value: kubedevnews
+        - name: DB_PASSWORD
+          value: Pg#123
+        image: fabricioveronez/kube-news:v1.0.0
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 20
+        name: api
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 10
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nyx-postgres
+  namespace: nyx-stg
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nyx-postgres
+  template:
+    metadata:
+      labels:
+        app: nyx-postgres
+    spec:
+      containers:
+      - env:
+        - name: POSTGRES_DB
+          value: kubedevnews
+        - name: POSTGRES_USER
+          value: kubedevnews
+        - name: POSTGRES_PASSWORD
+          value: Pg#123
+        image: postgres:16-alpine
+        name: postgres
+        ports:
+        - containerPort: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orion-postgres
+  namespace: orion-stg
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orion-postgres
+  template:
+    metadata:
+      labels:
+        app: orion-postgres
+    spec:
+      containers:
+      - env:
+        - name: POSTGRES_DB
+          value: ecommerce
+        - name: POSTGRES_USER
+          value: ecommerce
+        - name: POSTGRES_PASSWORD
+          value: Pg1234
+        image: postgres:16-alpine
+        name: postgres
+        ports:
+        - containerPort: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orion-web
+  namespace: orion-stg
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: orion-web
+  template:
+    metadata:
+      labels:
+        app: orion-web
+    spec:
+      containers:
+      - env:
+        - name: DB_HOST
+          value: orion-postgres
+        - name: DB_NAME
+          value: ecommerce
+        - name: DB_USER
+          value: ecommerce
+        - name: DB_PASSWORD
+          value: Pg1234
+        - name: FLASK_APP
+          value: index.py
+        - name: PROMETHEUS_MULTIPROC_DIR
+          value: /tmp/metrics
+        image: fabricioveronez/fake-shop:v1.14.2
+        name: web
+        ports:
+        - containerPort: 5000

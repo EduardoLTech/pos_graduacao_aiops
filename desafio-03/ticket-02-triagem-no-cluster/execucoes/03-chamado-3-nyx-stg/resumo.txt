@@ -1,0 +1,5 @@
+skills: triagem-cluster
+turnos 11 · 29 s · US$ 0.3 · erro False
+negacoes: 0
+chamadas de escrita no cluster: 0
+caminho: Skill(triagem-cluster) → ToolSearch() → k8s:kubectl_get(services -n nyx-stg) → k8s:kubectl_get(pods -n nyx-stg) → k8s:kubectl_get(service -n nyx-stg) → k8s:kubectl_get(endpointslices -n nyx-stg) → k8s:kubectl_get(pod -n nyx-stg) → k8s:kubectl_get(deployments -n nyx-stg) → k8s:kubectl_get(pods -n nyx-stg)

@@ -1,0 +1,29 @@
+# Laboratorio: sobe no kind os manifests que a skill gerou na execucao 04, sem editar
+# nenhum deles. Tres desvios, todos de ambiente e nao do manifesto:
+#   1. registry.metacortex.io so resolve dentro do parque: a imagem aponta para a de
+#      ORIGEM que o Loom espelha; tag e digest ficam os mesmos.
+#   2. o Namespace nao e objeto do workload (a plataforma cria); aqui entra junto.
+#   3. o Secret orion-fake-shop-db, que o relatorio manda criar a mao, vem de um
+#      generator com senha de laboratorio.
+# Uso (os arquivos ficam fora desta pasta, dai o load-restrictor):
+#   kubectl kustomize --load-restrictor LoadRestrictionsNone . | kubectl apply -f -
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - ../../../execucoes/04-escrita-fake-shop-stg/manifests/fake-shop-postgres.yaml
+  - ../../../execucoes/04-escrita-fake-shop-stg/manifests/fake-shop-migracao.yaml
+  - ../../../execucoes/04-escrita-fake-shop-stg/manifests/fake-shop.yaml
+images:
+  - name: registry.metacortex.io/orion/fake-shop
+    newName: docker.io/fabricioveronez/fake-shop
+  - name: registry.metacortex.io/orion/postgres
+    newName: docker.io/library/postgres
+secretGenerator:
+  - name: orion-fake-shop-db
+    namespace: orion-stg
+    literals:
+      - user=ecommerce
+      - password=senha-de-laboratorio
+generatorOptions:
+  disableNameSuffixHash: true

@@ -1,0 +1,26 @@
+﻿NAME                              READY   STATUS      RESTARTS   AGE     IP            NODE                           NOMINATED NODE   READINESS GATES
+pod/fake-shop-9957d999b-p42h2     1/1     Running     0          5m30s   10.244.0.5    metacortex-lab-control-plane   <none>           <none>
+pod/fake-shop-migracao-v1-7xhff   0/1     Error       0          4m49s   10.244.0.9    metacortex-lab-control-plane   <none>           <none>
+pod/fake-shop-migracao-v1-bn2lz   0/1     Error       0          5m30s   10.244.0.6    metacortex-lab-control-plane   <none>           <none>
+pod/fake-shop-migracao-v1-xg9wf   0/1     Completed   0          4m17s   10.244.0.10   metacortex-lab-control-plane   <none>           <none>
+pod/fake-shop-postgres-0          1/1     Running     0          38s     10.244.0.11   metacortex-lab-control-plane   <none>           <none>
+
+NAME                              STATUS     COMPLETIONS   DURATION   AGE     CONTAINERS   IMAGES                                                                                                           SELECTOR
+job.batch/fake-shop-migracao-v1   Complete   1/1           84s        5m30s   migracao     docker.io/fabricioveronez/fake-shop:v1@sha256:07db4334f5f2bb330f0f342a81ad203bb21b770b8d7a27c90edb2261fea34e2f   batch.kubernetes.io/controller-uid=1621cd76-993c-4472-8ef5-e358914fa6ac
+
+NAME                                  READY   AGE     CONTAINERS   IMAGES
+statefulset.apps/fake-shop-postgres   1/1     5m31s   postgres     docker.io/library/postgres:17@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f
+
+NAME                        READY   UP-TO-DATE   AVAILABLE   AGE     CONTAINERS   IMAGES                                                                                                           SELECTOR
+deployment.apps/fake-shop   1/1     1            1           5m31s   web          docker.io/fabricioveronez/fake-shop:v1@sha256:07db4334f5f2bb330f0f342a81ad203bb21b770b8d7a27c90edb2261fea34e2f   app.kubernetes.io/instance=orion-stg,app.kubernetes.io/name=fake-shop
+
+NAME                         TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)    AGE     SELECTOR
+service/fake-shop            ClusterIP   10.96.154.71   <none>        80/TCP     5m31s   app.kubernetes.io/instance=orion-stg,app.kubernetes.io/name=fake-shop
+service/fake-shop-postgres   ClusterIP   None           <none>        5432/TCP   5m31s   app.kubernetes.io/instance=orion-stg,app.kubernetes.io/name=fake-shop-postgres
+
+NAME                                                      ADDRESSTYPE   PORTS   ENDPOINTS     AGE
+endpointslice.discovery.k8s.io/fake-shop-jv2xv            IPv4          5000    10.244.0.5    5m31s
+endpointslice.discovery.k8s.io/fake-shop-postgres-vv464   IPv4          5432    10.244.0.11   5m31s
+
+NAME                                              STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE     VOLUMEMODE
+persistentvolumeclaim/data-fake-shop-postgres-0   Bound    pvc-67125c7c-d9fe-439c-b1c1-467aefc3a2f9   1Gi        RWO            standard       <unset>                 5m30s   Filesystem

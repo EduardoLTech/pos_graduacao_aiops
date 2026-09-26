@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "kubernetes": {
+      "command": "npx",
+      "args": ["-y", "mcp-server-kubernetes@4.1.7"],
+      "env": {
+        "KUBECONFIG": "${TRIAGEM_KUBECONFIG}",
+        "ALLOW_ONLY_READONLY_TOOLS": "true",
+        "MASK_SECRETS": "true"
+      }
+    }
+  }
+}

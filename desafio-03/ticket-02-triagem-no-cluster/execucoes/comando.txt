@@ -1,0 +1,12 @@
+# rodado a partir de desafio-03/ (onde ficam .claude/skills/triagem-cluster e manifests-metacortex)
+# TRIAGEM_KUBECONFIG aponta para o kubeconfig da ServiceAccount de leitura
+# (laboratorio/gerar-kubeconfig-leitura.sh). O MCP sobe em modo so leitura.
+# A lista de --allowedTools e a mesma do allowed-tools da skill: disparada pelo modelo
+# numa sessao -p, o frontmatter nao concede (ver ticket-01, fluxo-manual/07).
+export TRIAGEM_KUBECONFIG="$HOME/.kube/triagem-leitura.yaml"
+claude -p "$(cat ticket-02-triagem-no-cluster/execucoes/<pasta>/prompt.txt)" \
+  --mcp-config ticket-02-triagem-no-cluster/laboratorio/mcp-kubernetes-leitura.json --strict-mcp-config \
+  --permission-mode default \
+  --allowedTools "Skill,Read,Grep,Glob,mcp__kubernetes__kubectl_get,mcp__kubernetes__kubectl_describe,mcp__kubernetes__kubectl_logs,mcp__kubernetes__list_api_resources,mcp__kubernetes__ping" \
+  --disallowedTools "Bash,PowerShell" \
+  --output-format stream-json --verbose

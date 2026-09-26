@@ -1,0 +1,19 @@
+# Os tres ambientes do enunciado, com um unico desvio de laboratorio.
+#
+# fabricioveronez/kube-news:v1 foi republicada em 2026-09-21 so para linux/arm64. Num
+# cluster x86_64, os pods nyx-api dos Chamados 1 e 3 nem chegam a rodar ("no match for
+# platform in manifest", ver aplicacao-literal-2026-09-25.txt), e os tres chamados caem
+# na mesma camada, o registry. A v1.0.0 e multi-arch (amd64 + arm64, digest f86b40ce...)
+# e preserva o defeito que cada chamado quer reproduzir: limite de memoria no 1,
+# seletor no 3. O Chamado 2 nao usa kube-news e fica identico.
+#
+#   kubectl kustomize . | kubectl apply -f -
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - chamado-1-nyx-prod.yaml
+  - chamado-2-orion-stg.yaml
+  - chamado-3-nyx-stg.yaml
+images:
+  - name: fabricioveronez/kube-news
+    newTag: v1.0.0

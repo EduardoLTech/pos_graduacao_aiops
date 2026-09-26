@@ -1,0 +1,1 @@
+A loja do cliente orion (fake-shop, namespace orion-stg) parou depois de uma publicação do Loom: a tag foi anunciada no release e o deploy foi aplicado, mas o pod nunca trocou. Descobre o que houve e me diz a causa. Não pergunte nada.

@@ -1,0 +1,406 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: orion-stg
+---
+apiVersion: v1
+automountServiceAccountToken: false
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/instance: orion-stg
+    app.kubernetes.io/managed-by: platform
+    app.kubernetes.io/name: fake-shop
+    app.kubernetes.io/part-of: orion
+  name: fake-shop
+  namespace: orion-stg
+---
+apiVersion: v1
+automountServiceAccountToken: false
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/instance: orion-stg
+    app.kubernetes.io/managed-by: platform
+    app.kubernetes.io/name: fake-shop-migracao
+    app.kubernetes.io/part-of: orion
+  name: fake-shop-migracao
+  namespace: orion-stg
+---
+apiVersion: v1
+automountServiceAccountToken: false
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/instance: orion-stg
+    app.kubernetes.io/managed-by: platform
+    app.kubernetes.io/name: fake-shop-postgres
+    app.kubernetes.io/part-of: orion
+  name: fake-shop-postgres
+  namespace: orion-stg
+---
+apiVersion: v1
+data:
+  DB_HOST: fake-shop-postgres
+  DB_NAME: ecommerce
+  DB_PORT: "5432"
+  PROMETHEUS_MULTIPROC_DIR: /tmp/metrics
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/instance: orion-stg
+    app.kubernetes.io/managed-by: platform
+    app.kubernetes.io/name: fake-shop
+    app.kubernetes.io/part-of: orion
+  name: fake-shop
+  namespace: orion-stg
+---
+apiVersion: v1
+data:
+  password: c2VuaGEtZGUtbGFib3JhdG9yaW8=
+  user: ZWNvbW1lcmNl
+kind: Secret
+metadata:
+  name: orion-fake-shop-db
+  namespace: orion-stg
+type: Opaque
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/instance: orion-stg
+    app.kubernetes.io/managed-by: platform
+    app.kubernetes.io/name: fake-shop
+    app.kubernetes.io/part-of: orion
+  name: fake-shop
+  namespace: orion-stg
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+  selector:
+    app.kubernetes.io/instance: orion-stg
+    app.kubernetes.io/name: fake-shop
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/instance: orion-stg
+    app.kubernetes.io/managed-by: platform
+    app.kubernetes.io/name: fake-shop-postgres
+    app.kubernetes.io/part-of: orion
+  name: fake-shop-postgres
+  namespace: orion-stg
+spec:
+  clusterIP: None
+  ports:
+  - name: postgres
+    port: 5432
+    targetPort: postgres
+  selector:
+    app.kubernetes.io/instance: orion-stg
+    app.kubernetes.io/name: fake-shop-postgres
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/instance: orion-stg
+    app.kubernetes.io/managed-by: platform
+    app.kubernetes.io/name: fake-shop
+    app.kubernetes.io/part-of: orion
+  name: fake-shop
+  namespace: orion-stg
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: orion-stg
+      app.kubernetes.io/name: fake-shop
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: orion-stg
+        app.kubernetes.io/managed-by: platform
+        app.kubernetes.io/name: fake-shop
+        app.kubernetes.io/part-of: orion
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - command:
+        - gunicorn
+        - --bind
+        - 0.0.0.0:5000
+        - index:app
+        env:
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              key: user
+              name: orion-fake-shop-db
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: orion-fake-shop-db
+        envFrom:
+        - configMapRef:
+            name: fake-shop
+        image: docker.io/fabricioveronez/fake-shop:v1@sha256:07db4334f5f2bb330f0f342a81ad203bb21b770b8d7a27c90edb2261fea34e2f
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 20
+          timeoutSeconds: 3
+        name: web
+        ports:
+        - containerPort: 5000
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /shop
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 3
+        resources:
+          limits:
+            cpu: 500m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 10001
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp
+        - mountPath: /tmp/metrics
+          name: metrics
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: fake-shop
+      volumes:
+      - emptyDir: {}
+        name: tmp
+      - emptyDir: {}
+        name: metrics
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app.kubernetes.io/instance: orion-stg
+    app.kubernetes.io/managed-by: platform
+    app.kubernetes.io/name: fake-shop-postgres
+    app.kubernetes.io/part-of: orion
+  name: fake-shop-postgres
+  namespace: orion-stg
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: orion-stg
+      app.kubernetes.io/name: fake-shop-postgres
+  serviceName: fake-shop-postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: orion-stg
+        app.kubernetes.io/managed-by: platform
+        app.kubernetes.io/name: fake-shop-postgres
+        app.kubernetes.io/part-of: orion
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        - name: POSTGRES_DB
+          value: ecommerce
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              key: user
+              name: orion-fake-shop-db
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: orion-fake-shop-db
+        image: docker.io/library/postgres:17@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - sh
+              - -c
+              - pg_ctl stop -D "$PGDATA" -m fast -t 25
+        livenessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+          initialDelaySeconds: 30
+          periodSeconds: 20
+          timeoutSeconds: 5
+        name: postgres
+        ports:
+        - containerPort: 5432
+          name: postgres
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - pg_isready -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+          periodSeconds: 10
+          timeoutSeconds: 3
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 10001
+        volumeMounts:
+        - mountPath: /var/lib/postgresql/data
+          name: data
+        - mountPath: /var/run/postgresql
+          name: run
+        - mountPath: /tmp
+          name: tmp
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: fake-shop-postgres
+      volumes:
+      - emptyDir: {}
+        name: run
+      - emptyDir: {}
+        name: tmp
+  volumeClaimTemplates:
+  - metadata:
+      labels:
+        app.kubernetes.io/instance: orion-stg
+        app.kubernetes.io/managed-by: platform
+        app.kubernetes.io/name: fake-shop-postgres
+        app.kubernetes.io/part-of: orion
+      name: data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 1Gi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app.kubernetes.io/instance: orion-stg
+    app.kubernetes.io/managed-by: platform
+    app.kubernetes.io/name: fake-shop-migracao
+    app.kubernetes.io/part-of: orion
+  name: fake-shop-migracao-v1
+  namespace: orion-stg
+spec:
+  activeDeadlineSeconds: 900
+  backoffLimit: 6
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: orion-stg
+        app.kubernetes.io/managed-by: platform
+        app.kubernetes.io/name: fake-shop-migracao
+        app.kubernetes.io/part-of: orion
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - command:
+        - python
+        - -m
+        - flask
+        - db
+        - upgrade
+        env:
+        - name: FLASK_APP
+          value: index.py
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              key: user
+              name: orion-fake-shop-db
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: orion-fake-shop-db
+        envFrom:
+        - configMapRef:
+            name: fake-shop
+        image: docker.io/fabricioveronez/fake-shop:v1@sha256:07db4334f5f2bb330f0f342a81ad203bb21b770b8d7a27c90edb2261fea34e2f
+        name: migracao
+        resources:
+          limits:
+            cpu: 500m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 10001
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp
+        - mountPath: /tmp/metrics
+          name: metrics
+      restartPolicy: Never
+      securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: fake-shop-migracao
+      volumes:
+      - emptyDir: {}
+        name: tmp
+      - emptyDir: {}
+        name: metrics

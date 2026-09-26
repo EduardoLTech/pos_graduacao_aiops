@@ -1,0 +1,150 @@
+# nyx-api (kube-news) em nyx-prod, corrigido para o Padrão de Manifests da Metacortex.
+# Pendências que dependem de gente estão em conferencia.md (owner, tag publicada pelo
+# Loom, rotação da senha vazada, consumo observado, correções no código da aplicação).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nyx-api
+  namespace: nyx-prod
+  labels:
+    app.kubernetes.io/name: nyx-api
+    app.kubernetes.io/instance: nyx-prod
+    app.kubernetes.io/part-of: nyx
+    app.kubernetes.io/managed-by: platform
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nyx-api
+  namespace: nyx-prod
+  labels:
+    app.kubernetes.io/name: nyx-api
+    app.kubernetes.io/instance: nyx-prod
+    app.kubernetes.io/part-of: nyx
+    app.kubernetes.io/managed-by: platform
+data:
+  # Nomes exatos que src/models/post.js lê; a aplicação não lê DATABASE_URL.
+  DB_HOST: pg.nyx-prod.svc
+  DB_PORT: "5432"
+  DB_DATABASE: nyx
+  DB_SSL_REQUIRE: "false"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nyx-api
+  namespace: nyx-prod
+  labels:
+    app.kubernetes.io/name: nyx-api
+    app.kubernetes.io/instance: nyx-prod
+    app.kubernetes.io/part-of: nyx
+    app.kubernetes.io/managed-by: platform
+  # metacortex.io/owner: pendente, o time dono não foi informado
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nyx-api
+      app.kubernetes.io/instance: nyx-prod
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nyx-api
+        app.kubernetes.io/instance: nyx-prod
+        app.kubernetes.io/part-of: nyx
+        app.kubernetes.io/managed-by: platform
+    spec:
+      serviceAccountName: nyx-api
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: api
+          # Pendente: confirmar com o Loom a tag/digest publicados em nyx/api. O digest é o
+          # de fabricioveronez/kube-news:v1.0.0 (amd64 + arm64); a v1 só tem arm64.
+          image: registry.metacortex.io/nyx/api:v1.0.0@sha256:f86b40ce1bcbdf297b6236a8212f3e66c8412113aaa8855ba2747c79182734e5
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: nyx-api
+          env:
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef: {name: nyx-api-db, key: username}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: nyx-api-db, key: password}
+          readinessProbe:            # /ready não consulta o banco (pendência no código)
+            httpGet: {path: /ready, port: http}
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:             # /health não consulta o banco
+            httpGet: {path: /health, port: http}
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            timeoutSeconds: 3
+          resources:                 # iniciais, sem medição
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nyx-api
+  namespace: nyx-prod
+  labels:
+    app.kubernetes.io/name: nyx-api
+    app.kubernetes.io/instance: nyx-prod
+    app.kubernetes.io/part-of: nyx
+    app.kubernetes.io/managed-by: platform
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: nyx-api
+    app.kubernetes.io/instance: nyx-prod
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: nyx-api
+  namespace: nyx-prod
+  labels:
+    app.kubernetes.io/name: nyx-api
+    app.kubernetes.io/instance: nyx-prod
+    app.kubernetes.io/part-of: nyx
+    app.kubernetes.io/managed-by: platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nyx-api
+      app.kubernetes.io/instance: nyx-prod

@@ -13,6 +13,7 @@ aqui: sai listado em "Conferencia que exige ler o projeto".
 
 Uso:
   python3 scripts/conferir_manifests.py <arquivo-ou-diretorio>... [--formato md|json] [--sem-trivy]
+  python3 scripts/conferir_manifests.py --verificar-ambiente
 
 Codigo de saida:
   0  nenhuma regra barrada
@@ -23,11 +24,14 @@ Codigo de saida:
 from __future__ import annotations
 
 import argparse
+import atexit
 import json
 import re
+import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 try:
@@ -52,7 +56,62 @@ NOMES_GENERICOS = {"app", "main", "container", "default", "c"}
 KEBAB = re.compile(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$")
 NAMESPACE = re.compile(r"^(?P<cliente>[a-z0-9]([-a-z0-9]*[a-z0-9])?)-(?P<ambiente>dev|stg|prod)$")
 # Nome de variavel que, com valor literal, e segredo em texto puro (regra 3.3).
-ENV_SENSIVEL = re.compile(r"(PASS|SECRET|TOKEN|API_?KEY|PRIVATE_?KEY|CREDENTIAL|DATABASE_URL|_DSN$|CONN(ECTION)?_?STR)", re.I)
+# PWD so conta como parte do nome (DB_PWD): PWD sozinho e o diretorio corrente.
+ENV_SENSIVEL = re.compile(r"(PASS|SECRET|TOKEN|API_?KEY|PRIVATE_?KEY|CREDENTIAL|DATABASE_URL|_DSN$|CONN(ECTION)?_?STR"
+                          r"|_PWD($|_)|^PWD_)", re.I)
+# Sufixo que diz que a variavel e parametro do segredo, nao o segredo: TOKEN_TTL,
+# JWT_SECRET_ALGORITHM, PASSWORD_MIN_LENGTH, API_KEY_HEADER, SECRET_FILE (caminho).
+ENV_PARAMETRO = re.compile(r"_(TTL|TIMEOUT|EXPIRY|EXPIRES(_IN)?|EXPIRATION|LIFETIME|MIN_LENGTH|MAX_LENGTH|LENGTH"
+                           r"|ALGORITHM|ALG|HEADER|ISSUER|AUDIENCE|PATH|FILE|ENABLED|TYPE)$", re.I)
+# Flag de linha de comando com credencial: --db-password x, --token=x. O nome da
+# flag e comparado por palavra (passive, bypass e tokenizer nao contam), e sufixo
+# de parametro (--token-ttl, --password-file, --secret-name) tira da conta, como no env.
+# -p fica de fora: curto demais para heuristica.
+ARG_FLAG = re.compile(r"^--?(?P<nome>[A-Za-z][\w.-]*)(=(?P<valor>.*))?$")
+EXPANSAO = re.compile(r"^\$(\([A-Za-z_]\w*\)|\{[A-Za-z_]\w*\}|[A-Za-z_]\w*)$")
+PALAVRAS_SENSIVEIS = {"password", "passwd", "pass", "pwd", "secret", "token", "apikey", "credential", "credentials"}
+PALAVRAS_PARAMETRO = {"ttl", "timeout", "expiry", "expires", "expiration", "lifetime", "length", "algorithm", "alg",
+                      "header", "issuer", "audience", "path", "file", "dir", "name", "ref", "enabled", "type",
+                      "prompt", "stdin"}
+# Credencial em comentario sem URL ("# senha: x", "# password=x"). Vira pendencia, nao barra:
+# comentario explicando de onde vem a senha ("# senha: vem do Secret x") casaria igual.
+COMENTARIO_SENSIVEL = re.compile(r"\b(senha|password|passwd|pwd|secret|token|api[-_ ]?key)\b[^:=\n]{0,24}[:=]\s*\S+", re.I)
+
+
+def nome_sensivel(nome: str) -> bool:
+    return bool(ENV_SENSIVEL.search(nome)) and not ENV_PARAMETRO.search(nome)
+
+
+def flag_sensivel(nome: str) -> bool:
+    """--db-password sim; --password-file, --no-password, --passive, --tokenizer nao."""
+    palavras = [p for p in re.split(r"[-_.]", nome.lower()) if p]
+    palavras = [("apikey" if a == "api" and b == "key" else a) for a, b in zip(palavras, palavras[1:] + [""])]
+    if not palavras or palavras[0] == "no" or palavras[-1] in PALAVRAS_PARAMETRO:
+        return False
+    return any(p in PALAVRAS_SENSIVEIS for p in palavras)
+
+
+def tokens_de_comando(argv: list[str]) -> list[str]:
+    """Cada elemento de command/args quebrado como o shell quebraria.
+
+    Pega "sh -c 'app --db-password x'" e "--password abc" num elemento so.
+    """
+    out: list[str] = []
+    for a in argv:
+        try:
+            partes = shlex.split(a)
+        except ValueError:  # aspas desbalanceadas: fica o elemento inteiro
+            partes = [a]
+        out += partes or [a]
+    return out
+
+
+def valor_literal(v: str) -> bool:
+    """Valor que e o proprio dado, nao expansao de variavel do Kubernetes ou do shell."""
+    v = v.strip()
+    # So a expansao inteira conta: "$(DB_PASSWORD)", "${DB_PASSWORD}", "$DB_PASSWORD".
+    # "$enh4!" continua literal.
+    return bool(v) and not EXPANSAO.match(v)
 # Credencial embutida em URL: esquema://usuario:senha@host
 URL_COM_SENHA = re.compile(r"[a-z][a-z0-9+.-]*://[^/\s:@]+:[^@\s]+@", re.I)
 
@@ -91,10 +150,10 @@ TRIVY_PARA_REGRA = {
     "KSV-0013": "3.1",
     "KSV-0001": "3.2", "KSV-0003": "3.2", "KSV-0012": "3.2", "KSV-0014": "3.2", "KSV-0020": "3.2",
     "KSV-0009": "3.6", "KSV-0010": "3.6", "KSV-0017": "3.6",
-    # KSV-0125 (registry confiavel) roda com a lista da casa em assets/, mas nao
-    # pega imagem sem registry explicito ("nginx" = docker.io implicito). A regra
-    # 3.7 fica com o script; o achado do Trivy entra so como evidencia.
-    "KSV-0125": "3.7",
+    # KSV-0125 (registry confiavel) NAO esta aqui de proposito: ela nao pega
+    # imagem sem registry explicito ("nginx" = docker.io implicito) e, com a
+    # lista de assets/ vazia ou ausente, acusa ate registry.metacortex.io. A 3.7
+    # e do script; a KSV-0125 entra so como evidencia (ver rodar_trivy).
     # KSV-0109/KSV-01010 (segredo em ConfigMap) ficam fora de proposito: a
     # KSV-01010 marcou DB_PORT como sensivel. A regra 3.3 e do script.
 }
@@ -122,6 +181,27 @@ class Conferencia:
             self.ler_projeto.append(msg)
 
 
+def ler_texto(arq: Path) -> str:
+    """UTF-8 (com ou sem BOM) e UTF-16/32 com BOM, as codificacoes que o YAML aceita.
+
+    Outra codificacao (Latin-1, CP1252) sai com codigo 2, erro de uso: sair 1
+    confundiria "arquivo ilegivel" com "manifesto barrado".
+    """
+    dados = arq.read_bytes()
+    for bom, cod in ((b"\xff\xfe\x00\x00", "utf-32"), (b"\x00\x00\xfe\xff", "utf-32"),
+                     (b"\xff\xfe", "utf-16"), (b"\xfe\xff", "utf-16")):
+        if dados.startswith(bom):
+            break
+    else:
+        cod = "utf-8-sig"
+    try:
+        return dados.decode(cod)
+    except UnicodeDecodeError as e:
+        print(f"ERRO: {arq} nao esta em UTF-8 ({e.reason} no byte {e.start}). "
+              "Converta o arquivo para UTF-8 e rode de novo.", file=sys.stderr)
+        sys.exit(2)
+
+
 def carregar(caminhos: list[str]) -> tuple[list[tuple[str, dict]], list[tuple[str, str]], list[Path]]:
     arquivos: list[Path] = []
     for c in caminhos:
@@ -138,7 +218,7 @@ def carregar(caminhos: list[str]) -> tuple[list[tuple[str, dict]], list[tuple[st
         sys.exit(2)
     docs, linhas = [], []
     for arq in arquivos:
-        texto = arq.read_text(encoding="utf-8")
+        texto = ler_texto(arq)
         for n, linha in enumerate(texto.splitlines(), 1):
             linhas.append((f"{arq.name}:{n}", linha))
         try:
@@ -193,6 +273,33 @@ def rotulo(obj: dict) -> str:
 
 def casa(seletor: dict, labels: dict) -> bool:
     return bool(seletor) and all(labels.get(k) == v for k, v in seletor.items())
+
+
+def pdb_nao_protege(spec: dict, replicas: int) -> str | None:
+    """Motivo pelo qual o PDB deixa o eviction derrubar todas as replicas, ou None.
+
+    Percentual e arredondado como o Kubernetes faz: minAvailable para cima,
+    maxUnavailable para cima tambem (o controlador arredonda os dois assim).
+    """
+    def resolve(v):
+        if isinstance(v, str) and v.endswith("%"):
+            try:
+                return -(-replicas * int(v[:-1]) // 100)
+            except ValueError:
+                return None
+        return v if isinstance(v, int) else None
+
+    if "minAvailable" in spec:
+        n = resolve(spec["minAvailable"])
+        if n is not None and n < 1:
+            return f"tem minAvailable={spec['minAvailable']}, que nao segura nenhum pod"
+    elif "maxUnavailable" in spec:
+        n = resolve(spec["maxUnavailable"])
+        if n is not None and n >= replicas:
+            return f"tem maxUnavailable={spec['maxUnavailable']} com {replicas} replicas, que libera todas"
+    else:
+        return "nao define minAvailable nem maxUnavailable"
+    return None
 
 
 def conferir_rotulos(c: Conferencia, onde: str, labels: dict, ns: str | None) -> None:
@@ -250,7 +357,7 @@ def conferir_script(c: Conferencia, docs: list[tuple[str, dict]], linhas: list[t
         if kind == "ConfigMap":
             c.ok("3.3")
             for k, v in (obj.get("data") or {}).items():
-                if ENV_SENSIVEL.search(k) or URL_COM_SENHA.search(str(v)):
+                if nome_sensivel(k) or URL_COM_SENHA.search(str(v)):
                     c.falha("3.3", f"{onde}: chave '{k}' com valor sensivel em ConfigMap")
 
         # 1.4 Service
@@ -313,8 +420,23 @@ def conferir_script(c: Conferencia, docs: list[tuple[str, dict]], linhas: list[t
                 v = e.get("value")
                 if v in (None, ""):
                     continue
-                if ENV_SENSIVEL.search(e.get("name", "")) or URL_COM_SENHA.search(str(v)):
+                # $(OUTRA_VAR) e expansao do kubelet, nao o valor: mesmo criterio dos args
+                if (nome_sensivel(e.get("name", "")) and valor_literal(str(v))) or URL_COM_SENHA.search(str(v)):
                     c.falha("3.3", f"{onde}: container '{cn}' env {e.get('name')} com valor literal; use valueFrom.secretKeyRef")
+            # 3.3 command/args: "--db-password x", "--token=x" ou URL com senha
+            argv = [str(a) for a in (ct.get("command") or []) + (ct.get("args") or [])]
+            toks = tokens_de_comando(argv)
+            for i, a in enumerate(toks):
+                m_arg = ARG_FLAG.match(a)
+                if m_arg and flag_sensivel(m_arg.group("nome")):
+                    valor = m_arg.group("valor")
+                    if valor is None and i + 1 < len(toks) and not toks[i + 1].startswith("-"):
+                        valor = toks[i + 1]
+                    if valor is not None and valor_literal(valor):
+                        c.falha("3.3", f"{onde}: container '{cn}' passa credencial literal em command/args (--{m_arg.group('nome')}); use $(VAR) com secretKeyRef")
+            for a in argv:
+                if URL_COM_SENHA.search(a):
+                    c.falha("3.3", f"{onde}: container '{cn}' tem credencial embutida em URL em command/args")
 
         # 2.2 so para container de longa duracao (Job/CronJob terminam)
         if kind in LONGA_DURACAO:
@@ -354,6 +476,10 @@ def conferir_script(c: Conferencia, docs: list[tuple[str, dict]], linhas: list[t
                          and casa(((p.get("spec") or {}).get("selector") or {}).get("matchLabels") or {}, plabels)]
                 if not cobre:
                     c.falha("2.5", f"{onde}: {rep} replicas em prod sem PodDisruptionBudget que selecione o pod")
+                for p in cobre:
+                    motivo = pdb_nao_protege(p.get("spec") or {}, rep)
+                    if motivo:
+                        c.falha("2.5", f"{onde}: {rotulo(p)} {motivo}; o padrao pede minAvailable 1 no minimo")
 
         # 3.4 / 3.5
         if kind in LONGA_DURACAO or kind in ("Job", "CronJob"):
@@ -376,6 +502,9 @@ def conferir_script(c: Conferencia, docs: list[tuple[str, dict]], linhas: list[t
         comentario = linha.split("#", 1)[1] if "#" in linha else ""
         if URL_COM_SENHA.search(comentario):
             c.falha("3.3", f"{onde}: credencial embutida em URL dentro de comentario")
+        elif COMENTARIO_SENSIVEL.search(comentario):
+            # So o local: repetir o trecho no relatorio espalharia a credencial.
+            c.pendente(f"3.3 {onde}: comentario parece conter credencial; abrir a linha, confirmar e remover se for.")
 
 
 def rodar_trivy(c: Conferencia, arquivos: list[Path], docs: list[tuple[str, dict]]) -> None:
@@ -386,11 +515,21 @@ def rodar_trivy(c: Conferencia, arquivos: list[Path], docs: list[tuple[str, dict
         return
     vistos = set()
     falhou = None
-    for arq in arquivos:
+    # O Trivy le UTF-16 sem erro e sem achado nenhum: as regras dele sairiam OK
+    # sem conferencia. Ele recebe sempre uma copia em UTF-8 do texto ja decodificado.
+    tmp = tempfile.TemporaryDirectory()
+    atexit.register(tmp.cleanup)
+    for i, arq in enumerate(arquivos):
+        alvo = Path(tmp.name) / str(i) / arq.name
+        alvo.parent.mkdir()
+        # write_bytes, nao write_text: no Windows o modo texto transforma o \r\n ja
+        # decodificado em \r\r\n, e o Trivy para de separar documentos no "---"
+        # (so le o primeiro; os outros sairiam OK sem conferencia).
+        alvo.write_bytes(ler_texto(arq).encode("utf-8"))
         # --config-data vai relativo, com cwd em assets/: no Windows o Trivy
         # descarta a letra do drive de caminho absoluto e nao acha o diretorio.
         cmd = [exe, "config", "-q", "--format", "json", "--config-data", TRIVY_CONFIG_DATA.name,
-               str(arq.resolve())]
+               str(alvo)]
         try:
             # 180s cobre o primeiro uso, quando o Trivy baixa o bundle de checagens
             p = subprocess.run(cmd, capture_output=True, text=True, timeout=180, encoding="utf-8",
@@ -414,9 +553,13 @@ def rodar_trivy(c: Conferencia, arquivos: list[Path], docs: list[tuple[str, dict
                 msg = f"{arq.name}: [{m['ID']}] {m.get('Message')}"
                 if regra:
                     c.falha(regra, msg)
+                elif m["ID"] == "KSV-0125" and c.achados["3.7"]:
+                    # Evidencia: so reforca a 3.7 que o script ja barrou; nunca barra sozinha.
+                    c.achados["3.7"].append(f"evidencia do Trivy: {msg}")
                 else:
                     c.trivy_extra.append({"id": m["ID"], "severidade": m.get("Severity"),
-                                          "titulo": m.get("Title"), "arquivo": arq.name})
+                                          "titulo": m.get("Title"), "arquivo": arq.name,
+                                          "mensagem": m.get("Message")})
     c.trivy_status = f"falhou: {falhou}" if falhou else "executado"
     if falhou:
         marcar_regras_trivy(c, docs, f"trivy falhou ({falhou})")
@@ -491,20 +634,52 @@ def relatorio(c: Conferencia, formato: str) -> tuple[str, int]:
         out += [f"- [ ] {p}" for p in c.ler_projeto]
     if c.trivy_extra:
         out += ["", "## Trivy fora do padrao da casa (informativo, nao barra por esta pagina)", ""]
-        agg: dict[str, dict] = {}
+        # A mensagem vai junto: e ela que diz qual chave/campo o Trivy acusou,
+        # sem precisar rodar o trivy de novo fora do script.
+        agg: dict[str, list[dict]] = {}
         for t in c.trivy_extra:
-            agg.setdefault(t["id"], t)
-        out += [f"- {t['id']} ({t['severidade']}): {t['titulo']}" for t in agg.values()]
+            agg.setdefault(t["id"], []).append(t)
+        for ts in agg.values():
+            out.append(f"- {ts[0]['id']} ({ts[0]['severidade']}): {ts[0]['titulo']}")
+            out += [f"  - {t['arquivo']}: {t['mensagem']}" for t in ts if t.get("mensagem")]
     out += ["", f"Codigo de saida: {codigo}"]
     return "\n".join(out), codigo
 
 
+def verificar_ambiente() -> int:
+    """Preflight num comando so: a skill nao precisa encadear comandos no Bash."""
+    sys.stdout.reconfigure(encoding="utf-8")
+    print(f"Python: {sys.version.split()[0]}")
+    print(f"PyYAML: {yaml.__version__}")  # se faltasse, o import ja teria saido com 2
+    exe = shutil.which("trivy")
+    if not exe:
+        print("Trivy: ausente (ver references/instalar-trivy.md)")
+        print("Codigo de saida: 3")
+        return 3
+    try:
+        p = subprocess.run([exe, "--version"], capture_output=True, text=True, timeout=30, encoding="utf-8")
+        versao = (p.stdout.strip().splitlines() or ["?"])[0]
+    except (subprocess.TimeoutExpired, OSError) as e:
+        print(f"Trivy: {exe} nao respondeu ({e})")
+        print("Codigo de saida: 3")
+        return 3
+    print(f"Trivy: {versao} ({exe})")
+    print("Codigo de saida: 0")
+    return 0
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("caminhos", nargs="+")
+    ap.add_argument("caminhos", nargs="*")
     ap.add_argument("--formato", choices=("md", "json"), default="md")
     ap.add_argument("--sem-trivy", action="store_true", help="pula o Trivy; regras dele saem NAO_VERIFICADO")
+    ap.add_argument("--verificar-ambiente", action="store_true",
+                    help="so confere Python, PyYAML e Trivy (preflight) e sai")
     a = ap.parse_args()
+    if a.verificar_ambiente:
+        sys.exit(verificar_ambiente())
+    if not a.caminhos:
+        ap.error("informe ao menos um arquivo ou diretorio (ou --verificar-ambiente)")
     docs, linhas, arquivos = carregar(a.caminhos)
     c = Conferencia()
     conferir_script(c, docs, linhas)

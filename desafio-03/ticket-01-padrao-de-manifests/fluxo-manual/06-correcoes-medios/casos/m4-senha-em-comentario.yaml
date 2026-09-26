@@ -1,0 +1,145 @@
+# senha do banco: s3nh4-literal
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fake-shop
+  namespace: orion-stg
+  labels:
+    app.kubernetes.io/name: fake-shop
+    app.kubernetes.io/instance: orion-stg
+    app.kubernetes.io/part-of: orion
+    app.kubernetes.io/managed-by: platform
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fake-shop
+  namespace: orion-stg
+  labels:
+    app.kubernetes.io/name: fake-shop
+    app.kubernetes.io/instance: orion-stg
+    app.kubernetes.io/part-of: orion
+    app.kubernetes.io/managed-by: platform
+data:
+  DB_HOST: fake-shop-postgres
+  DB_PORT: '5432'
+  DB_NAME: ecommerce
+  PROMETHEUS_MULTIPROC_DIR: /tmp/metrics
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fake-shop
+  namespace: orion-stg
+  labels:
+    app.kubernetes.io/name: fake-shop
+    app.kubernetes.io/instance: orion-stg
+    app.kubernetes.io/part-of: orion
+    app.kubernetes.io/managed-by: platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: fake-shop
+      app.kubernetes.io/instance: orion-stg
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: fake-shop
+        app.kubernetes.io/instance: orion-stg
+        app.kubernetes.io/part-of: orion
+        app.kubernetes.io/managed-by: platform
+    spec:
+      serviceAccountName: fake-shop
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: web
+        image: registry.metacortex.io/orion/fake-shop:v1@sha256:07db4334f5f2bb330f0f342a81ad203bb21b770b8d7a27c90edb2261fea34e2f
+        command:
+        - gunicorn
+        - --bind
+        - 0.0.0.0:5000
+        - index:app
+        ports:
+        - name: http
+          containerPort: 5000
+        envFrom:
+        - configMapRef:
+            name: fake-shop
+        env:
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: orion-fake-shop-db
+              key: user
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: orion-fake-shop-db
+              key: password
+        readinessProbe:
+          httpGet:
+            path: /shop
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 3
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 20
+          timeoutSeconds: 3
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 10001
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: metrics
+          mountPath: /tmp/metrics
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: metrics
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fake-shop
+  namespace: orion-stg
+  labels:
+    app.kubernetes.io/name: fake-shop
+    app.kubernetes.io/instance: orion-stg
+    app.kubernetes.io/part-of: orion
+    app.kubernetes.io/managed-by: platform
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: fake-shop
+    app.kubernetes.io/instance: orion-stg
+  ports:
+  - name: http
+    port: 80
+    targetPort: http

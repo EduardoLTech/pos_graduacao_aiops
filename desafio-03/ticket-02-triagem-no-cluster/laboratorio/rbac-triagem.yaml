@@ -1,0 +1,54 @@
+# Identidade do agente de triagem: le o cluster, nao escreve nele.
+#
+# O ClusterRole "view" e o papel de leitura que o proprio Kubernetes mantem: get, list
+# e watch na maioria dos recursos, incluindo pods/log, eventos, endpoints e
+# endpointslices. Ele nao inclui Secrets, nem pods/exec, pods/portforward ou
+# qualquer verbo de escrita. E essa a ultima camada da garantia "triagem so le": mesmo
+# que o agente chame kubectl_apply pelo MCP, o apiserver responde 403.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: triagem
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: triagem-leitura
+  namespace: triagem
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: triagem-leitura-view
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view
+subjects:
+  - kind: ServiceAccount
+    name: triagem-leitura
+    namespace: triagem
+---
+# O "view" nao le Node, e pod em Pending por falta de recurso so se explica olhando a
+# capacidade e as condicoes do no. So leitura.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: triagem-leitura-nos
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: triagem-leitura-nos
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: triagem-leitura-nos
+subjects:
+  - kind: ServiceAccount
+    name: triagem-leitura
+    namespace: triagem

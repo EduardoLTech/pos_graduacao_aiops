@@ -1,0 +1,29 @@
+﻿# kubectl get pods + eventos Warning, ambientes aplicados como estao no enunciado (kind x86_64)
+=== nyx-prod
+NAME                           READY   STATUS             RESTARTS   AGE
+nyx-api-86d89c59-qk4kv         0/1     ImagePullBackOff   0          5m33s
+nyx-api-86d89c59-zlhm7         0/1     ImagePullBackOff   0          5m33s
+nyx-postgres-c8886cfc8-rqvnx   1/1     Running            0          5m33s
+117s        Warning   Failed   pod/nyx-api-86d89c59-qk4kv   Failed to pull image "fabricioveronez/kube-news:v1": rpc error: code = NotFound desc = failed to pull and unpack image "docker.io/fabricioveronez/kube-news:v1": no match for platform in manifest: not found
+117s        Warning   Failed   pod/nyx-api-86d89c59-qk4kv   Error: ErrImagePull
+66s         Warning   Failed   pod/nyx-api-86d89c59-qk4kv   Error: ImagePullBackOff
+48s         Warning   Failed   pod/nyx-api-86d89c59-zlhm7   Error: ImagePullBackOff
+=== orion-stg
+NAME                             READY   STATUS             RESTARTS   AGE
+orion-postgres-98cccbc6c-4mw4d   1/1     Running            0          5m33s
+orion-web-7bbfd5df6b-2gqpg       0/1     ImagePullBackOff   0          5m33s
+orion-web-7bbfd5df6b-hgqlt       0/1     ImagePullBackOff   0          5m33s
+orion-web-7bbfd5df6b-s2d76       0/1     ImagePullBackOff   0          5m33s
+2m8s        Warning   Failed   pod/orion-web-7bbfd5df6b-2gqpg   Error: ErrImagePull
+74s         Warning   Failed   pod/orion-web-7bbfd5df6b-2gqpg   Error: ImagePullBackOff
+66s         Warning   Failed   pod/orion-web-7bbfd5df6b-hgqlt   Error: ImagePullBackOff
+24s         Warning   Failed   pod/orion-web-7bbfd5df6b-s2d76   Error: ImagePullBackOff
+=== nyx-stg
+NAME                           READY   STATUS             RESTARTS   AGE
+nyx-api-68d45b9f54-5sd5m       0/1     ImagePullBackOff   0          5m33s
+nyx-api-68d45b9f54-gzxt4       0/1     ImagePullBackOff   0          5m33s
+nyx-postgres-c8886cfc8-25xdd   1/1     Running            0          5m33s
+2m1s        Warning   Failed   pod/nyx-api-68d45b9f54-5sd5m   Failed to pull image "fabricioveronez/kube-news:v1": rpc error: code = NotFound desc = failed to pull and unpack image "docker.io/fabricioveronez/kube-news:v1": no match for platform in manifest: not found
+2m1s        Warning   Failed   pod/nyx-api-68d45b9f54-5sd5m   Error: ErrImagePull
+74s         Warning   Failed   pod/nyx-api-68d45b9f54-5sd5m   Error: ImagePullBackOff
+55s         Warning   Failed   pod/nyx-api-68d45b9f54-gzxt4   Error: ImagePullBackOff

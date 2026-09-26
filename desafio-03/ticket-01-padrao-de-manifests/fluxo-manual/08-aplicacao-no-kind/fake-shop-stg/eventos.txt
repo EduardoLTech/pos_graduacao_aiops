@@ -1,0 +1,53 @@
+﻿LAST SEEN   TYPE      REASON                  OBJECT                                            MESSAGE
+5m30s       Normal    SuccessfulCreate        statefulset/fake-shop-postgres                    create Claim data-fake-shop-postgres-0 Pod fake-shop-postgres-0 in StatefulSet fake-shop-postgres success
+5m30s       Normal    SuccessfulCreate        replicaset/fake-shop-9957d999b                    Created pod: fake-shop-9957d999b-p42h2
+5m30s       Normal    Provisioning            persistentvolumeclaim/data-fake-shop-postgres-0   External provisioner is provisioning volume for claim "orion-stg/data-fake-shop-postgres-0"
+5m30s       Normal    Scheduled               pod/fake-shop-migracao-v1-bn2lz                   Successfully assigned orion-stg/fake-shop-migracao-v1-bn2lz to metacortex-lab-control-plane
+5m30s       Normal    Scheduled               pod/fake-shop-9957d999b-p42h2                     Successfully assigned orion-stg/fake-shop-9957d999b-p42h2 to metacortex-lab-control-plane
+5m30s       Normal    WaitForFirstConsumer    persistentvolumeclaim/data-fake-shop-postgres-0   waiting for first consumer to be created before binding
+5m30s       Normal    SuccessfulCreate        job/fake-shop-migracao-v1                         Created pod: fake-shop-migracao-v1-bn2lz
+5m30s       Normal    ScalingReplicaSet       deployment/fake-shop                              Scaled up replica set fake-shop-9957d999b from 0 to 1
+5m28s       Normal    Pulling                 pod/fake-shop-9957d999b-p42h2                     Pulling image "docker.io/fabricioveronez/fake-shop:v1@sha256:07db4334f5f2bb330f0f342a81ad203bb21b770b8d7a27c90edb2261fea34e2f"
+5m28s       Normal    Pulling                 pod/fake-shop-migracao-v1-bn2lz                   Pulling image "docker.io/fabricioveronez/fake-shop:v1@sha256:07db4334f5f2bb330f0f342a81ad203bb21b770b8d7a27c90edb2261fea34e2f"
+5m26s       Normal    ExternalProvisioning    persistentvolumeclaim/data-fake-shop-postgres-0   Waiting for a volume to be created either by the external provisioner 'rancher.io/local-path' or manually by the system administrator. If volume creation is delayed, please verify that the provisioner is running and correctly registered.
+5m25s       Normal    Scheduled               pod/fake-shop-postgres-0                          Successfully assigned orion-stg/fake-shop-postgres-0 to metacortex-lab-control-plane
+5m25s       Normal    ProvisioningSucceeded   persistentvolumeclaim/data-fake-shop-postgres-0   Successfully provisioned volume pvc-67125c7c-d9fe-439c-b1c1-467aefc3a2f9
+5m24s       Normal    Pulling                 pod/fake-shop-postgres-0                          Pulling image "docker.io/library/postgres:17@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f"
+5m11s       Normal    Created                 pod/fake-shop-migracao-v1-bn2lz                   Created container: migracao
+5m11s       Normal    Pulled                  pod/fake-shop-migracao-v1-bn2lz                   Successfully pulled image "docker.io/fabricioveronez/fake-shop:v1@sha256:07db4334f5f2bb330f0f342a81ad203bb21b770b8d7a27c90edb2261fea34e2f" in 17.391s (17.391s including waiting). Image size: 59675359 bytes.
+5m10s       Normal    Pulled                  pod/fake-shop-9957d999b-p42h2                     Successfully pulled image "docker.io/fabricioveronez/fake-shop:v1@sha256:07db4334f5f2bb330f0f342a81ad203bb21b770b8d7a27c90edb2261fea34e2f" in 1.544s (18.886s including waiting). Image size: 59675359 bytes.
+5m10s       Normal    Started                 pod/fake-shop-migracao-v1-bn2lz                   Started container migracao
+5m9s        Normal    Created                 pod/fake-shop-9957d999b-p42h2                     Created container: web
+5m9s        Normal    Started                 pod/fake-shop-9957d999b-p42h2                     Started container web
+5m8s        Warning   Unhealthy               pod/fake-shop-9957d999b-p42h2                     Readiness probe failed: Get "http://10.244.0.5:5000/shop": dial tcp 10.244.0.5:5000: connect: connection refused
+4m49s       Normal    Scheduled               pod/fake-shop-migracao-v1-7xhff                   Successfully assigned orion-stg/fake-shop-migracao-v1-7xhff to metacortex-lab-control-plane
+4m49s       Normal    SuccessfulCreate        job/fake-shop-migracao-v1                         Created pod: fake-shop-migracao-v1-7xhff
+4m48s       Normal    Started                 pod/fake-shop-migracao-v1-7xhff                   Started container migracao
+4m48s       Normal    Created                 pod/fake-shop-migracao-v1-7xhff                   Created container: migracao
+4m48s       Normal    Pulled                  pod/fake-shop-migracao-v1-7xhff                   Container image "docker.io/fabricioveronez/fake-shop:v1@sha256:07db4334f5f2bb330f0f342a81ad203bb21b770b8d7a27c90edb2261fea34e2f" already present on machine
+4m47s       Warning   Unhealthy               pod/fake-shop-9957d999b-p42h2                     Liveness probe failed: Get "http://10.244.0.5:5000/metrics": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+4m39s       Normal    Started                 pod/fake-shop-postgres-0                          Started container postgres
+4m39s       Normal    Created                 pod/fake-shop-postgres-0                          Created container: postgres
+4m39s       Normal    Pulled                  pod/fake-shop-postgres-0                          Successfully pulled image "docker.io/library/postgres:17@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f" in 30.388s (44.682s including waiting). Image size: 161346986 bytes.
+4m38s       Warning   Unhealthy               pod/fake-shop-postgres-0                          Readiness probe failed: 127.0.0.1:5432 - no response
+4m17s       Normal    Created                 pod/fake-shop-migracao-v1-xg9wf                   Created container: migracao
+4m17s       Normal    SuccessfulCreate        job/fake-shop-migracao-v1                         Created pod: fake-shop-migracao-v1-xg9wf
+4m17s       Normal    Started                 pod/fake-shop-migracao-v1-xg9wf                   Started container migracao
+4m17s       Normal    Pulled                  pod/fake-shop-migracao-v1-xg9wf                   Container image "docker.io/fabricioveronez/fake-shop:v1@sha256:07db4334f5f2bb330f0f342a81ad203bb21b770b8d7a27c90edb2261fea34e2f" already present on machine
+4m17s       Normal    Scheduled               pod/fake-shop-migracao-v1-xg9wf                   Successfully assigned orion-stg/fake-shop-migracao-v1-xg9wf to metacortex-lab-control-plane
+4m6s        Normal    Completed               job/fake-shop-migracao-v1                         Job completed
+3m36s       Normal    Killing                 pod/fake-shop-postgres-0                          Stopping container postgres
+3m36s       Normal    SuccessfulDelete        statefulset/fake-shop-postgres                    delete Pod fake-shop-postgres-0 in StatefulSet fake-shop-postgres successful
+3m35s       Warning   FailedPreStopHook       pod/fake-shop-postgres-0                          PreStopHook failed
+2m52s       Warning   Unhealthy               pod/fake-shop-9957d999b-p42h2                     Readiness probe failed: HTTP probe failed with statuscode: 500
+52s         Warning   Unhealthy               pod/fake-shop-9957d999b-p42h2                     Readiness probe failed: Get "http://10.244.0.5:5000/shop": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+38s         Normal    Scheduled               pod/fake-shop-postgres-0                          Successfully assigned orion-stg/fake-shop-postgres-0 to metacortex-lab-control-plane
+38s         Normal    SuccessfulCreate        statefulset/fake-shop-postgres                    create Pod fake-shop-postgres-0 in StatefulSet fake-shop-postgres successful
+36s         Normal    Pulled                  pod/fake-shop-postgres-0                          Container image "docker.io/library/postgres:17@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f" already present on machine
+36s         Normal    Created                 pod/fake-shop-postgres-0                          Created container: postgres
+35s         Normal    Started                 pod/fake-shop-postgres-0                          Started container postgres
+24s         Normal    Scheduled               pod/sonda                                         Successfully assigned orion-stg/sonda to metacortex-lab-control-plane
+24s         Normal    Pulling                 pod/sonda                                         Pulling image "curlimages/curl:8.10.1"
+19s         Normal    Pulled                  pod/sonda                                         Successfully pulled image "curlimages/curl:8.10.1" in 4.327s (4.327s including waiting). Image size: 9414401 bytes.
+19s         Normal    Created                 pod/sonda                                         Created container: sonda
+19s         Normal    Started                 pod/sonda                                         Started container sonda

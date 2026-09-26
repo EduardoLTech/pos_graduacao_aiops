@@ -32,7 +32,7 @@ PR, com prazo de validade.
 | 2.2 readiness e liveness | obrigatório | script (presença) + você (alvo) | as duas em qualquer ambiente, apontando para endpoint que a aplicação **de fato expõe**. Readiness responde "posso receber tráfego?"; liveness responde "estou vivo?". A liveness não pode depender do banco: banco lento reinicia o container, e o reinício não conserta o banco |
 | 2.3 replicas >= 2 em prod | obrigatório | script | ausência de `replicas` é 1. dev/stg aceitam 1 |
 | 2.4 Estratégia em prod | obrigatório | script | `RollingUpdate`, `maxUnavailable: 0`, `maxSurge: 1` |
-| 2.5 PDB em prod | recomendado | script | workload de prod com mais de uma réplica tem PDB com `minAvailable: 1` no mínimo, selecionando o pod |
+| 2.5 PDB em prod | recomendado | script | workload de prod com mais de uma réplica tem PDB com `minAvailable: 1` no mínimo, selecionando o pod. PDB com `minAvailable: 0` ou `maxUnavailable` ≥ réplicas (inclusive `100%`) não segura pod nenhum e conta como ausente |
 | 2.6 terminationGracePeriodSeconds | recomendado | você | o padrão de 30s serve se a aplicação trata SIGTERM e drena nesse tempo. Processo que é PID 1 sem handler ignora SIGTERM e morre só no SIGKILL, ao fim do prazo |
 
 ## Bloco 3: segurança
@@ -41,16 +41,18 @@ PR, com prazo de validade.
 |---|---|---|---|
 | 3.1 `:latest` | proibido | Trivy (KSV-0013) | tag imutável ou digest; sem tag também conta como latest |
 | 3.2 securityContext | obrigatório | Trivy (KSV-0001/03/12/14/20) + você | `runAsNonRoot`, `runAsUser: 10001`, `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, `capabilities.drop: [ALL]`. **Você:** todo caminho em que a aplicação escreve precisa de `emptyDir` montado (montar um diretório pai esconde os subdiretórios que a imagem criou nele) |
-| 3.3 Segredo em texto puro | proibido | script + você | nada sensível em `env.value`, ConfigMap ou comentário; sempre `secretKeyRef`. Secret com `data`/`stringData` no manifesto também é segredo versionado no Git. **Você:** decidir o que é sensível, porque o script usa heurística de nome e de URL com senha |
+| 3.3 Segredo em texto puro | proibido | script + você | nada sensível em `env.value`, ConfigMap ou comentário; sempre `secretKeyRef`. Secret com `data`/`stringData` no manifesto também é segredo versionado no Git. O script barra nome sensível com valor literal em `env`/ConfigMap (parâmetro do segredo, como `TOKEN_TTL`, não conta), flag de credencial com valor literal em `command`/`args`, inclusive dentro de `sh -c "..."` (o nome da flag é lido por palavra: `--token-ttl`, `--password-file`, `--no-password` e `--passive` não contam; `-p` não é conferido; `$(VAR)` não conta) e URL com senha em qualquer lugar. Credencial em comentário sem URL vira pendência, porque "senha: vem do Secret x" casa igual. **Você:** decidir o que é sensível, porque tudo isso é heurística de nome |
 | 3.4 `automountServiceAccountToken: false` | obrigatório (desde 2026-07-29) | script + você | obrigatório quando a aplicação não fala com o apiserver. **Você:** confirmar no código (cliente de Kubernetes nas dependências?) |
 | 3.5 ServiceAccount dedicada | recomendado | script | uma por workload, nunca a `default`; sem RBAC se não fala com a API |
 | 3.6 hostNetwork, hostPID, privileged | proibido | Trivy (KSV-0009/10/17) | sem exceção para workload de cliente |
 | 3.7 Registry interno | obrigatório | script | toda `image:` começa com `registry.metacortex.io/`. Imagem pública entra pelo Loom, que espelha e republica |
 
 A regra 3.7 fica com o script porque a KSV-0125 do Trivy, mesmo configurada com a lista
-da casa (`assets/trivy-config-data/`), **não dispara** para imagem sem registry explícito
-(`nginx` = Docker Hub implícito). Com a lista padrão, ela ainda acusa
-`registry.metacortex.io` como não confiável.
+da casa (`assets/trivy-config-data/`), **não disparou** para imagem oficial sem registry
+nem organização (`nginx`); `fabricioveronez/kube-news` disparou. Com a lista vazia ou
+ausente, ela acusa até `registry.metacortex.io`. Por isso a KSV-0125 nunca barra
+sozinha: quando o script já barrou a 3.7, ela entra como evidência no achado; quando
+não barrou, aparece só como informativo.
 
 ## Checagens do Trivy fora do padrão
 

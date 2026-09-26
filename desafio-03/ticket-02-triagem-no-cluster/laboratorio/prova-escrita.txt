@@ -1,0 +1,28 @@
+# Prova de escrita com o kubeconfig da ServiceAccount triagem/triagem-leitura — 2026-09-26T00:32:34Z
+
+$ kubectl -n nyx-prod create configmap prova-escrita --from-literal=a=b
+error: failed to create configmap: configmaps is forbidden: User "system:serviceaccount:triagem:triagem-leitura" cannot create resource "configmaps" in API group "" in the namespace "nyx-prod"
+(saida 1)
+
+$ kubectl -n nyx-prod scale deploy/nyx-api --replicas=3
+Error from server (Forbidden): deployments.apps "nyx-api" is forbidden: User "system:serviceaccount:triagem:triagem-leitura" cannot patch resource "deployments/scale" in API group "apps" in the namespace "nyx-prod"
+(saida 1)
+
+$ kubectl -n nyx-stg patch service nyx-api --type merge -p {"spec":{"selector":{"app":"nyxapi"}}}
+Error from server (Forbidden): services "nyx-api" is forbidden: User "system:serviceaccount:triagem:triagem-leitura" cannot patch resource "services" in API group "" in the namespace "nyx-stg"
+(saida 1)
+
+# auth can-i
+get pods -A                              yes
+get pods/log -n nyx-prod                 yes
+get endpointslices -n nyx-stg            yes
+get nodes                                yes
+get secrets -n nyx-prod                  no
+create deployments -n nyx-prod           no
+patch services -n nyx-stg                no
+delete pods -n nyx-prod                  no
+create pods/exec -n nyx-prod             no
+create pods/portforward -n nyx-prod      no
+patch deployments/scale -n nyx-prod      no
+create serviceaccounts/token -n triagem  no
+impersonate users                        no

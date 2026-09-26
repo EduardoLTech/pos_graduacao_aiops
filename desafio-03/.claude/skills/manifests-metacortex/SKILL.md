@@ -13,7 +13,7 @@ description: >-
   Não use para triagem de cluster em execução (pod que não sobe, service sem
   tráfego no cluster), para aplicar manifesto no cluster, nem para dúvida
   conceitual de Kubernetes.
-allowed-tools: Read, Grep, Glob, Write, Edit, Bash(python3 *conferir_manifests.py*), Bash(python *conferir_manifests.py*), Bash(trivy --version)
+allowed-tools: Read, Grep, Glob, Write, Edit, Bash(python3 *conferir_manifests.py*), Bash(python *conferir_manifests.py*), Bash(python3 *inspecionar_imagem.py*), Bash(python *inspecionar_imagem.py*)
 ---
 
 # Manifests da Metacortex
@@ -36,14 +36,27 @@ uma tem um dono:
 A tabela completa das regras, com o critério de cada uma, está em
 `references/regras-da-casa.md`. Leia antes de escrever ou de explicar um achado.
 
+## Ferramentas
+
+Leia a skill, o projeto e os manifestos com Read, Glob e Grep, nunca com `cat`, `ls`
+ou `git` no Bash. O Bash desta skill só roda os dois scripts dela, **um comando por
+chamada**: sem `cd`, `&&`, `;`, `|` nem `echo $?` depois. Qualquer coisa encadeada
+cai fora da permissão e é negada. Os scripts resolvem o diretório sozinhos. No caminho
+normal, a última linha já diz o código de saída. Um erro de uso (caminho inexistente,
+YAML inválido, arquivo fora de UTF-8) sai no stderr com código 2, e a mensagem diz o
+que corrigir.
+
+Chame os scripts com `python3` (no Windows, `python`), pelo caminho absoluto da skill:
+`<dir-da-skill>/scripts/<script>.py`. Use a ferramenta Bash também no Windows: a
+permissão da skill cobre Bash, e a mesma chamada pela ferramenta PowerShell é negada.
+
 ## Preflight
 
-Confira `trivy --version`. Se faltar, siga `references/instalar-trivy.md`. Sem
-Trivy o script roda, mas as regras 2.1, 3.1, 3.2 e 3.6 saem `NAO_VERIFICADO` e o
-código de saída é 3: nunca reporte isso como conforme.
-
-O script exige Python 3 com PyYAML. Chame-o com `python3` (no Windows, `python`),
-pelo caminho da skill: `<dir-da-skill>/scripts/conferir_manifests.py`.
+`python3 <dir-da-skill>/scripts/conferir_manifests.py --verificar-ambiente` confere
+Python, PyYAML e Trivy num comando só. Código 3 significa Trivy ausente: siga
+`references/instalar-trivy.md`. Sem Trivy o script roda, mas as regras 2.1, 3.1,
+3.2 e 3.6 saem `NAO_VERIFICADO` e o código de saída é 3: nunca reporte isso como
+conforme.
 
 ## Modo conferir (o uso frequente)
 
@@ -85,7 +98,8 @@ Veredito: BARRA | PASSA COM JUSTIFICATIVA | PASSA
    comando para criar o Secret vai no relatório, não no repositório.
 4. Rode o script no diretório gerado e corrija até sair código 0. Os informativos
    do Trivy que o modelo já resolve (seccomp, GID) devem sumir. Se algum sobrar,
-   explique o motivo.
+   explique o motivo. O relatório já traz a mensagem do Trivy por arquivo (qual
+   chave, qual campo); não rode `trivy config` avulso para ver o detalhe.
 5. Entregue os YAML e um resumo curto das decisões que não eram óbvias (probe
    escolhida e por quê, migração, volumes, valores de recurso iniciais), com as
    pendências que dependem de gente: consumo observado para os limits, Secret a

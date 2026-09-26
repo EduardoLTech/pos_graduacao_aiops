@@ -1,0 +1,9 @@
+# rodado a partir de desafio-03/ (onde fica .claude/skills/)
+# Sem --allowedTools para as ferramentas da skill: mede se o allowed-tools do
+# frontmatter basta sozinho. Unica permissao na linha de comando: a ferramenta
+# Skill, para a skill poder ser carregada.
+claude -p "$(cat ticket-01-padrao-de-manifests/execucoes/06-conferencia-nyx-so-frontmatter/prompt.txt)" \
+  --permission-mode default \
+  --allowedTools "Skill" \
+  --disallowedTools "Bash(kubectl *)" \
+  --output-format stream-json --verbose

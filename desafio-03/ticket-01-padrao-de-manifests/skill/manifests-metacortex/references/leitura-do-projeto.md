@@ -38,23 +38,29 @@ com `arquivo:linha`. O que o projeto não responder fica como pendência nomeada
 
 ## Imagem: usuário, workdir, comando
 
-Se não houver Dockerfile no repositório, leia a configuração da imagem publicada
-(`docker inspect`, ou a API do registry sem Docker) para saber `User`, `WorkingDir`,
-`Cmd` e o que o build criou (diretórios, donos). É isso que diz se `runAsUser: 10001`
+Se não houver Dockerfile no repositório, leia a configuração da imagem publicada para
+saber `User`, `WorkingDir`, `Cmd` e o que o build criou (diretórios, donos). É isso que diz se `runAsUser: 10001`
 consegue ler os arquivos e se o `command` sobrescrito roda no diretório certo.
 
 `registry.metacortex.io` só resolve dentro da rede do parque. Fora dela, inspecione a
-imagem de **origem** que o Loom espelhou (normalmente no Docker Hub, com o mesmo digest),
-sem Docker, pela API do registry:
+imagem de **origem** que o Loom espelhou (normalmente no Docker Hub, com o mesmo digest).
+O script da skill faz isso sem Docker e sem credencial, só com GET anônimo no registry:
 
-```sh
-repo=<org>/<imagem>; ref=<tag-ou-digest>
-tok=$(curl -s "https://auth.docker.io/token?service=registry.docker.io&scope=repository:$repo:pull" | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
-# manifest (índice multi-arch -> escolha o digest amd64) -> config.digest -> blob com User/WorkingDir/Cmd/history
-curl -s -H "Authorization: Bearer $tok" -H "Accept: application/vnd.oci.image.index.v1+json,application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.v2+json" "https://registry-1.docker.io/v2/$repo/manifests/$ref"
+```
+python3 <dir-da-skill>/scripts/inspecionar_imagem.py <org>/<imagem>:<tag-ou-@digest>
+python3 <dir-da-skill>/scripts/inspecionar_imagem.py <org>/<imagem> --tags
 ```
 
-Só marque a imagem como "não verificada" se nem a origem for alcançável.
+O primeiro imprime o digest do índice, as plataformas, `User`, `WorkingDir`,
+`Entrypoint`, `Cmd`, portas, `Env` e os passos do build. O segundo lista as tags mais
+recentes, para descobrir qual foi publicada. Não use `curl`: fica fora da permissão da
+skill.
+
+Código 3 é "não verificado", com o motivo na saída: registry inalcançável, repositório
+ou tag inexistente, ou imagem privada. Se você não souber o repositório de origem,
+tente os candidatos que o projeto sugere (README, workflow de CI, `docker-compose`). Se
+nenhum existir, registre a imagem como **não verificada** e diga quais você tentou. Não
+suponha `User` nem `Cmd`.
 
 ## Decisões recorrentes
 

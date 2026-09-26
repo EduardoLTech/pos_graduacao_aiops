@@ -1,0 +1,8 @@
+kubernetes 4.1.7 · (sem restricao) · 23 ferramentas
+cleanup, exec_in_pod, explain_resource, install_helm_chart, kubectl_apply, kubectl_context, kubectl_create, kubectl_delete, kubectl_describe, kubectl_generic, kubectl_get, kubectl_logs, kubectl_patch, kubectl_reconnect, kubectl_rollout, kubectl_scale, list_api_resources, node_management, ping, port_forward, stop_port_forward, uninstall_helm_chart, upgrade_helm_chart
+
+kubernetes 4.1.7 · ALLOW_ONLY_NON_DESTRUCTIVE_TOOLS=true · 18 ferramentas
+exec_in_pod, explain_resource, install_helm_chart, kubectl_apply, kubectl_context, kubectl_create, kubectl_describe, kubectl_get, kubectl_logs, kubectl_patch, kubectl_reconnect, kubectl_rollout, kubectl_scale, list_api_resources, ping, port_forward, stop_port_forward, upgrade_helm_chart
+
+kubernetes 4.1.7 · ALLOW_ONLY_READONLY_TOOLS=true · 8 ferramentas
+explain_resource, kubectl_context, kubectl_describe, kubectl_get, kubectl_logs, kubectl_reconnect, list_api_resources, ping
